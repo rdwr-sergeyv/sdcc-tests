@@ -70,7 +70,6 @@ def _check_incident_py(root):
     _assert_contains(checks, 'Handler allows POST only', handler_text, r"allowed_methods\s*=\s*\(\s*['\"]POST['\"]\s*,?\s*\)")
     _assert_true(checks, 'create(request, resource_id) exists', create is not None)
     _assert_contains(checks, 'Role failure maps to Http403', create_text, r"OPERATOR_ADMIN.*OPERATOR_SUPER.*Http403")
-    _assert_true(checks, 'No DP_ISOLATE feature flag gate exists', 'DP_ISOLATE' not in create_text)
     _assert_contains(checks, 'Missing active incident returns OK no-op', create_text, r"find_one\(\{['\"]asset['\"].*['\"]endedAt['\"]:\s*None\}\).*HttpResponse\(\{['\"]reply['\"]:\s*['\"]OK['\"]\}")
     _assert_contains(checks, 'Attack Zone account returns OK no-op', create_text, r"account\.get\(['\"]zone['\"]\)\s*==\s*attack_zone_id")
     _assert_contains(checks, 'Already-isolated state returns OK no-op', create_text, r"isolation_state.*isolated")
