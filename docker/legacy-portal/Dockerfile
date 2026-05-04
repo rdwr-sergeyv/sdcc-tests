@@ -36,7 +36,8 @@ COPY --from=portal-static /opt/cddos-legacy/sdcc-portal/sdcc_portal/portal/stati
 COPY sdcc.conf /etc/sdcc/sdcc.conf
 COPY entrypoint.sh /usr/local/bin/sdcc-portal-entrypoint
 
-RUN chmod +x /usr/local/bin/sdcc-portal-entrypoint \
+RUN sed -i 's/\r$//' /usr/local/bin/sdcc-portal-entrypoint \
+    && chmod +x /usr/local/bin/sdcc-portal-entrypoint \
     && mkdir -p /var/log/sdcc /var/lib/sdcc/core /var/lib/sdcc/portal /var/lock/sdcc \
     && pip install --upgrade pip 'setuptools<81' wheel \
     && pip install -e /opt/cddos-legacy/sdcc \

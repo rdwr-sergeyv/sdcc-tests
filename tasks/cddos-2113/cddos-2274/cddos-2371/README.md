@@ -20,7 +20,7 @@ Run against an environment that already has:
 
 - CDDOS-2273 Attack Zone seed/model changes.
 - One active incident for the target asset.
-- Representative Attack Zone DPX availability for both success and quorum
+- Representative Attack Zone DefensePro availability for both success and quorum
   failure cases.
 
 Required live cases remain the checklist in

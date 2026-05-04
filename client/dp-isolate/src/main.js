@@ -80,12 +80,19 @@ function backendLabel(incident) {
   return labels.length ? labels.join(', ') : 'no backend';
 }
 
+function currentZoneLabel(incident) {
+  if (!incident) return 'off-cloud';
+  return incident.topology?.currentZone || 'unknown zone';
+}
+
 function attackZoneLabel(incident) {
   const primary = incident?.topology?.primaryDiversions || [];
   if (!incident) return 'off-cloud';
   if (!primary.length) return 'not ready';
   const attackZoneDpCount = primary.reduce((sum, sc) => sum + (sc.attackZoneDpCount || 0), 0);
-  return attackZoneDpCount > 0 ? `${attackZoneDpCount} Attack Zone DP${attackZoneDpCount === 1 ? '' : 's'}` : 'no Attack Zone DPs';
+  const reservableAttackZoneDpCount = primary.reduce((sum, sc) => sum + (sc.reservableAttackZoneDpCount || 0), 0);
+  if (!attackZoneDpCount) return 'no Attack Zone DPs';
+  return `${reservableAttackZoneDpCount} eligible / ${attackZoneDpCount} Attack Zone DP${attackZoneDpCount === 1 ? '' : 's'}`;
 }
 
 function selectedDpLabel(incident) {
@@ -176,6 +183,7 @@ function renderHistory() {
 function renderAssets() {
   const query = elements.assetSearch.value.trim().toLowerCase();
   const validateClientSide = elements.clientValidations.checked;
+  const selectedAssetId = currentAssetId();
   const assets = state.assets
     .filter((asset) => {
       if (!query) return true;
@@ -191,6 +199,7 @@ function renderAssets() {
         asset.incident?.id,
         asset.incident?.status,
         topologyLabel(asset.incident),
+        currentZoneLabel(asset.incident),
         backendLabel(asset.incident),
         attackZoneLabel(asset.incident),
         selectedDpLabel(asset.incident),
@@ -211,11 +220,14 @@ function renderAssets() {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'asset-row';
+    if (asset.id === selectedAssetId) {
+      row.classList.add('asset-row-selected');
+    }
     row.disabled = validateClientSide && !asset.applicable;
     if (!asset.applicable) {
       row.classList.add('asset-row-disabled');
       row.title = asset.incident
-        ? 'Not applicable: primary scrubbing center has no DefensePros in Attack Zone.'
+        ? 'Not applicable: every active scrubbing center needs at least two eligible Attack Zone DefensePros.'
         : 'Not applicable: no active incident is associated with this asset.';
     }
     row.innerHTML = `
@@ -233,6 +245,7 @@ function renderAssets() {
       </span>
       <span class="asset-status sc-status">
         <em data-readiness="${asset.applicable ? 'ready' : 'blocked'}">${topologyLabel(asset.incident)}</em>
+        <small>current zone: ${currentZoneLabel(asset.incident)}</small>
         <small>${backendLabel(asset.incident)}; ${attackZoneLabel(asset.incident)}</small>
         <small>${selectedDpLabel(asset.incident)}</small>
       </span>
@@ -244,8 +257,10 @@ function renderAssets() {
     if (asset.applicable || !validateClientSide) {
       row.addEventListener('click', () => {
         elements.assetId.value = asset.id;
+        elements.assetSearch.value = asset.id;
         localStorage.setItem('dpIsolateAssetId', asset.id);
         updateRequestPreview();
+        renderAssets();
       });
     }
     elements.assetList.appendChild(row);
@@ -284,10 +299,9 @@ async function loadAssets() {
     const compact = compactAsset(asset);
     if (!compact.id) continue;
     compact.incident = incidentByAssetId.get(compact.id) || null;
-    compact.applicable = Boolean(
-      compact.incident
-      && (compact.incident.topology?.primaryDiversions || []).some((sc) => (sc.attackZoneDpCount || 0) > 0),
-    );
+    const primaryDiversions = compact.incident?.topology?.primaryDiversions || [];
+    compact.applicable = Boolean(compact.incident && primaryDiversions.length
+      && primaryDiversions.every((sc) => (sc.reservableAttackZoneDpCount || 0) >= 2));
     assetsById.set(compact.id, compact);
   }
 
@@ -297,10 +311,9 @@ async function loadAssets() {
     const compact = compactAsset(incident.asset);
     compact.incident = compactIncident(incident);
     compact.incident.topology = topologyByIncidentId.get(compact.incident.id) || topologyByAssetId.get(assetId) || null;
-    compact.applicable = Boolean(
-      compact.incident
-      && (compact.incident.topology?.primaryDiversions || []).some((sc) => (sc.attackZoneDpCount || 0) > 0),
-    );
+    const primaryDiversions = compact.incident.topology?.primaryDiversions || [];
+    compact.applicable = Boolean(primaryDiversions.length
+      && primaryDiversions.every((sc) => (sc.reservableAttackZoneDpCount || 0) >= 2));
     assetsById.set(assetId, compact);
   }
 
@@ -459,6 +472,9 @@ loadConfig()
       elements.password.value = config.password;
     }
     elements.assetId.value = config?.defaultAssetId || localStorage.getItem('dpIsolateAssetId') || '';
+    if (elements.assetId.value) {
+      elements.assetSearch.value = elements.assetId.value;
+    }
     updateRequestPreview();
     if (config?.defaultAssetId) {
       localStorage.setItem('dpIsolateAssetId', config.defaultAssetId);
@@ -471,6 +487,9 @@ loadConfig()
   })
   .catch(() => {
     elements.assetId.value = localStorage.getItem('dpIsolateAssetId') || '';
+    if (elements.assetId.value) {
+      elements.assetSearch.value = elements.assetId.value;
+    }
     updateRequestPreview();
     return checkSession().catch(() => setBadge(elements.sessionBadge, 'Portal unavailable', 'bad'));
   });

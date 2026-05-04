@@ -56,10 +56,7 @@
             <p class="muted">Login to load assets.</p>
           </div>
 
-          <label>
-            Selected Asset ID
-            <input id="assetId" name="assetId" placeholder="24-character ObjectId" spellcheck="false" />
-          </label>
+          <input id="assetId" name="assetId" type="hidden" />
           <p id="requestPreview" class="result-meta">POST /api/incident/isolation/enable/{asset_id}</p>
 
           <div class="segmented" role="group" aria-label="Trigger source">

@@ -188,6 +188,15 @@ button.secondary:hover {
   background: #eef5fb;
 }
 
+.asset-row-selected {
+  background: #e6f1fa;
+  box-shadow: inset 3px 0 0 #24699f;
+}
+
+.asset-row-selected:hover {
+  background: #dcecf8;
+}
+
 .asset-row small {
   display: block;
   margin-top: 3px;

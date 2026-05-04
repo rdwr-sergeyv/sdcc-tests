@@ -75,10 +75,16 @@ def _check_incident_py(root):
     _assert_contains(checks, 'Already-isolated state returns OK no-op', create_text, r"isolation_state.*isolated")
     _assert_contains(checks, 'Already in Attack Zone returns OK no-op', create_text, r"first_diversion.*zone.*attack_zone_id")
     _assert_contains(checks, 'In-queue incident returns 409', create_text, r"in_queue.*ErrorRestResult\(.*409")
+    _assert_contains(checks, 'Handler preflights isolation eligibility before lock', create_text, r"validate_isolation_possible\(self\._db,\s*incident,\s*attack_zone_id=attack_zone_id\).*MongoLock")
     _assert_contains(checks, 'Asset-level MongoLock is used', create_text, r"MongoLock\(client=self\._db\.client\).*lock\(str\(asset_id\)")
     _assert_contains(checks, 'Lock contention returns 409', create_text, r"lock\(str\(asset_id\).*ErrorRestResult\(.*409")
     _assert_contains(checks, 'manual/auto trigger contract exists', create_text, r"request\.data\.get\(['\"]trigger['\"],\s*['\"]manual['\"]\).*manual.*auto")
-    _assert_contains(checks, 'IsolationNotPossible maps to 422', create_text, r"except\s+IsolationNotPossible.*ErrorRestResult\(err,\s*422\)")
+    _assert_contains(
+        checks,
+        'IsolationNotPossible maps to 422',
+        create_text,
+        r"except\s+IsolationError\s+as\s+err:.*ErrorRestResult\(err,\s*get_isolation_error_status\(err\)\)",
+    )
     _assert_contains(checks, 'Successful request calls isolate_incident', create_text, r"isolate_incident\(self\._db,\s*self\._db_stats,\s*incident,\s*trigger_source=trigger_source\)")
     _assert_contains(checks, 'Lock is released in finally', create_text, r"finally:.*release\(str\(asset_id\),\s*lock_owner\)")
     _assert_contains(checks, 'Enable route is registered', source, r"re_path\(r'\^isolation/enable/.*ErrorHandlingResource\(IsolateIncidentHandler\)")
@@ -93,13 +99,17 @@ def _check_diversion_py(root):
 
     _assert_true(checks, 'IsolationNotPossible exists', _find_class(module, 'IsolationNotPossible') is not None)
     _assert_true(checks, 'get_attack_zone exists', any(isinstance(node, ast.FunctionDef) and node.name == 'get_attack_zone' for node in module.body))
+    _assert_true(checks, 'validate_isolation_possible exists', any(isinstance(node, ast.FunctionDef) and node.name == 'validate_isolation_possible' for node in module.body))
     isolate = next((node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == 'isolate_incident'), None)
     _assert_true(checks, 'isolate_incident exists', isolate is not None)
     if not isolate:
         return checks
 
     isolate_text = _node_text(source, isolate)
-    _assert_contains(checks, 'Quorum failure raises IsolationNotPossible before update', isolate_text, r"len\(reserved_dps\)\s*<\s*MINIMUM_DPS_FOR_ISOLATION.*raise\s+IsolationNotPossible")
+    validate = next((node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == 'validate_isolation_possible'), None)
+    validate_text = _node_text(source, validate) if validate else ''
+    _assert_contains(checks, 'Quorum failure raises IsolationNotPossible', validate_text, r"len\(reserved_dps\)\s*<\s*MINIMUM_DPS_FOR_ISOLATION.*raise\s+IsolationNotPossible")
+    _assert_contains(checks, 'isolate_incident rechecks eligibility before update', isolate_text, r"attack_zone_id\s*=\s*validate_isolation_possible\(db,\s*incident\).*update_incident")
     _assert_contains(checks, 'Original selected DPs are snapshotted', isolate_text, r"original_selected_dp_ids")
     _assert_contains(checks, 'Topology is rebuilt for Attack Zone', isolate_text, r"_build_isolation_topology_for_diversion\(db,\s*diversion,\s*attack_zone_id\)")
     _assert_contains(checks, 'Topology update uses TASK_ACTION.UPDATE', isolate_text, r"['\"]action['\"]:\s*TASK_ACTION\.UPDATE")

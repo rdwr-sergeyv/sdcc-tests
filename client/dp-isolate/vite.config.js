@@ -106,6 +106,30 @@ const scById = new Map(scs.map((sc) => [String(sc._id), sc]));
 function dpDevices(sc) {
   return (sc.management_devices || []).filter((device) => device.role === 'radware-defensepro' || device.type === 'radware-defensepro');
 }
+function routerOutDevices(sc) {
+  return (sc.management_devices || []).filter((device) => device.role === 'router-out');
+}
+function selectedRouterOuts(sc, diversion) {
+  const topology = diversion && diversion.state && diversion.state.topology || {};
+  const selectedIds = new Set(Object.entries(topology)
+    .filter((entry) => entry[1] && (entry[1].selected || entry[1].implicit))
+    .map((entry) => entry[0]));
+  const selected = routerOutDevices(sc).filter((device) => selectedIds.has(String(device.unique_id)));
+  return selected.length ? selected : routerOutDevices(sc);
+}
+function dpMatchesRouter(dp, router) {
+  return (router.interfaces || []).some((iface) => String(iface.ingress) === String(dp.unique_id))
+    && (dp.interfaces || []).some((iface) => String(iface.router_out) === String(router.unique_id));
+}
+function isDpStatusBlocked(sc, dp) {
+  const status = db.ScrubbingCenterDeviceStatuses.findOne({
+    '_id.scrubbing_center': sc._id,
+    '_id.device_uid': dp.unique_id
+  });
+  if (!status) return false;
+  if (dp.max_policies && dp.max_policies !== -1 && Number(dp.max_policies) * 0.96 < (status.num_policies || 0)) return true;
+  return status.op_status === 2;
+}
 function selectedDefensePros(sc, diversion) {
   const topology = diversion && diversion.state && diversion.state.topology || {};
   return dpDevices(sc).filter((device) => topology[String(device.unique_id)] && topology[String(device.unique_id)].selected).map((device) => ({
@@ -119,17 +143,26 @@ function selectedDefensePros(sc, diversion) {
 function summarizeSc(sc, diversion) {
   const backend = backends.get(String(sc.backend));
   const devices = dpDevices(sc);
+  const currentZoneId = diversion && diversion.zone ? String(diversion.zone) : '';
+  const routersOut = selectedRouterOuts(sc, diversion);
   const attackZoneDpCount = attackZone
     ? devices.filter((device) => String(device.zone) === String(attackZone._id)).length
+    : 0;
+  const reservableAttackZoneDpCount = attackZone
+    ? devices.filter((device) => String(device.zone) === String(attackZone._id)
+        && !isDpStatusBlocked(sc, device)
+        && routersOut.some((router) => dpMatchesRouter(device, router))).length
     : 0;
   return {
     id: String(sc._id),
     name: sc.name,
     abbreviation: sc.abbreviation || '',
+    currentZone: currentZoneId ? (zoneById.get(currentZoneId) || currentZoneId) : '',
     backend: backend ? { id: String(backend._id), name: backend.name, role: backend.role || '' } : null,
     selectedDefensePros: selectedDefensePros(sc, diversion),
     defenseProCount: devices.length,
     attackZoneDpCount,
+    reservableAttackZoneDpCount,
     deactivated: Boolean(diversion && diversion.state && diversion.state.deactivated),
     connectedTo: (diversion && diversion.state && diversion.state.sc_connected || []).map(String)
   };
@@ -142,12 +175,15 @@ const result = incidents.map((incident) => {
     return summarizeSc(sc, diversion);
   }).filter(Boolean);
   const primaryDiversions = diversions.filter((sc) => !sc.deactivated && sc.connectedTo.length === 0);
+  const activeDiversions = diversions.filter((sc) => !sc.deactivated);
+  const currentZones = Array.from(new Set(activeDiversions.map((sc) => sc.currentZone).filter(Boolean)));
   return {
     id: String(incident._id),
     assetId: String(incident.asset),
     status: incident.status || '',
     inQueue: Boolean(incident.in_queue),
     isolated: Boolean(incident.isolation_state && incident.isolation_state.isolated),
+    currentZone: currentZones.length === 1 ? currentZones[0] : currentZones.length ? currentZones.join(', ') : '',
     diversions,
     primaryDiversions: primaryDiversions.length ? primaryDiversions : diversions.filter((sc) => !sc.deactivated)
   };
