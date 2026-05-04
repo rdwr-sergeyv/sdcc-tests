@@ -30,6 +30,12 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+logs/
+.tmp/
+
+# Local dev configuration/secrets
+.env
+.env.local
 
 # OS/editor
 .DS_Store

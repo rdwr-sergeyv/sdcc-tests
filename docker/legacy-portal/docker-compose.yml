@@ -1,0 +1,32 @@
+services:
+  mongo:
+    image: ${LEGACY_PORTAL_MONGO_IMAGE:-mongo:8.2}
+    profiles:
+      - internal-mongo
+    ports:
+      - "${LEGACY_PORTAL_MONGO_PORT:-27017}:27017"
+    volumes:
+      - type: bind
+        source: ${LEGACY_PORTAL_MONGO_DB_PATH:-C:/data/db}
+        target: /data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  portal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      additional_contexts:
+        sdcc-src: ${SDCC_REPO_PATH:-../../../sdcc}
+        sdcc-portal-src: ${SDCC_PORTAL_REPO_PATH:-../../../sdcc-portal}
+    environment:
+      SDCC_DOCKER_BOOTSTRAP_DB: "1"
+      SDCC_MONGO_HOST: ${SDCC_MONGO_HOST:-mongo}
+      SDCC_MONGO_PORT: ${SDCC_MONGO_PORT:-27017}
+      SDCC_MONGO_DB: ${SDCC_MONGO_DB:-sdcc}
+      SDCC_PORTAL_PUBLIC_URL: ${SDCC_PORTAL_PUBLIC_URL:-http://localhost:8000}
+    ports:
+      - "${LEGACY_PORTAL_PORT:-8000}:8000"

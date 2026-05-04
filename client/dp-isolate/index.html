@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DP Isolate Test Client</title>
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h1>DP Isolate Test Client</h1>
+            <p>POST only the two isolation endpoints against the legacy portal.</p>
+          </div>
+          <span id="sessionBadge" class="badge">Not checked</span>
+        </div>
+
+        <form id="loginForm" class="grid form-grid">
+          <label>
+            Portal user
+            <input id="username" name="username" autocomplete="username" />
+          </label>
+          <label>
+            Portal password
+            <input id="password" name="password" type="password" autocomplete="current-password" />
+          </label>
+          <button type="submit">Login</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header compact">
+          <div>
+            <h2>Isolation Action</h2>
+            <p>Asset ID is the `{asset_id}` path parameter.</p>
+          </div>
+        </div>
+
+        <form id="actionForm" class="action-form">
+          <label>
+            Asset picker
+            <div class="picker-row">
+              <input id="assetSearch" name="assetSearch" placeholder="Search assets by name, address, or ID" />
+              <button id="refreshAssets" type="button" class="secondary">Refresh</button>
+            </div>
+          </label>
+
+          <label class="toggle-row">
+            <input id="clientValidations" name="clientValidations" type="checkbox" checked />
+            Client validations
+          </label>
+
+          <div id="assetList" class="asset-list">
+            <p class="muted">Login to load assets.</p>
+          </div>
+
+          <label>
+            Selected Asset ID
+            <input id="assetId" name="assetId" placeholder="24-character ObjectId" spellcheck="false" />
+          </label>
+          <p id="requestPreview" class="result-meta">POST /api/incident/isolation/enable/{asset_id}</p>
+
+          <div class="segmented" role="group" aria-label="Trigger source">
+            <label>
+              <input type="radio" name="trigger" value="manual" checked />
+              Manual
+            </label>
+            <label>
+              <input type="radio" name="trigger" value="auto" />
+              Auto
+            </label>
+          </div>
+
+          <div class="actions">
+            <button id="enableButton" type="button" data-action="enable">Enable Isolation</button>
+            <button id="disableButton" type="button" data-action="disable">Disable Isolation</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header compact">
+          <div>
+            <h2>Result</h2>
+            <p id="lastRequest">No request sent</p>
+            <p id="resultMeta" class="result-meta">No HTTP response yet</p>
+          </div>
+          <span id="statusBadge" class="badge">Idle</span>
+        </div>
+        <pre id="responseBox">{}</pre>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header compact">
+          <div>
+            <h2>History</h2>
+          </div>
+          <button id="clearHistory" type="button" class="secondary">Clear</button>
+        </div>
+        <div id="history" class="history"></div>
+      </section>
+    </main>
+  </body>
+</html>

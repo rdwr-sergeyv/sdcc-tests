@@ -1,0 +1,17 @@
+{
+  "name": "sdcc-tests",
+  "version": "0.0.0",
+  "private": true,
+  "description": "No-prod SDCC test and tooling workspace.",
+  "scripts": {
+    "dp-isolate-client": "vite --host 127.0.0.1 --config client/dp-isolate/vite.config.js",
+    "dp-isolate-fixtures:capture": "node tools/dp-isolate-fixtures/capture.cjs",
+    "dp-isolate-fixtures:list": "node tools/dp-isolate-fixtures/list.cjs",
+    "dp-isolate-fixtures:restore": "node tools/dp-isolate-fixtures/restore.cjs",
+    "playwright": "playwright"
+  },
+  "devDependencies": {
+    "playwright": "^1.59.1",
+    "vite": "^5.4.21"
+  }
+}
