@@ -57,7 +57,7 @@ function help() {
   make                         Show this help
   make run-dp-isolate          Start legacy portal, start DP Isolate client, open browser
   make dp-isolate:start        Same as run-dp-isolate
-  make dp-isolate:restart      Stop, then start DP Isolate stack and client
+  make dp-isolate:restart      Restart existing portal stack without rebuilding; restart client
   make dp-isolate:rebuild      Rebuild/recreate portal, restart client, open browser
   make dp-isolate:stop         Stop client and portal
   make dp-isolate:status       Show portal/client status
@@ -115,6 +115,20 @@ async function portalUp() {
   console.log('Checking Docker CLI...');
   ensureCommand('docker', ['--version'], 'Docker CLI is required.');
   await runDockerComposeLive(args);
+  await waitForUrl(portalUrl, 120000, 'legacy portal');
+}
+
+async function portalRestart() {
+  console.log('Restarting legacy portal Docker Compose stack without rebuilding...');
+  console.log('Checking Docker CLI...');
+  ensureCommand('docker', ['--version'], 'Docker CLI is required.');
+  const ps = dockerCompose(['ps', '-q']);
+  if (ps.status !== 0 || !String(ps.stdout || '').trim()) {
+    console.log('No existing compose containers found; starting stack instead.');
+    await portalUp();
+    return;
+  }
+  await runDockerComposeLive(['restart']);
   await waitForUrl(portalUrl, 120000, 'legacy portal');
 }
 
@@ -205,8 +219,10 @@ async function stop() {
 }
 
 async function restart() {
-  await stop();
-  await run();
+  await clientDown();
+  await portalRestart();
+  await clientUp();
+  await openClient();
 }
 
 async function rebuild() {

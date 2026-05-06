@@ -25,11 +25,23 @@ http://localhost:8000/
 
 The compose stack writes a minimal `/etc/sdcc/sdcc.conf`, connects to MongoDB,
 bootstraps the minimal SDCC default database documents needed for the portal,
-and runs:
+and runs the portal:
 
 ```bash
 python manage.py runserver 0.0.0.0:8000
 ```
+
+It also starts two separate backend containers for the Docker-required workers
+used by the isolation queue flow:
+
+```text
+incident-manager -> sdcc-incident-manager.py, backend role: master
+cmd-executor     -> sdcc-cmd-executor.py, backend role: monitor
+```
+
+Production runs these through systemd on separate backend roles. The Docker
+harness mirrors that split with one process per container and relies on Compose
+restart policy instead of systemd.
 
 Reset the seeded database with:
 

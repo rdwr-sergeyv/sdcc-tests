@@ -58,8 +58,14 @@ different DP Isolate cases. From `sdcc-tests`:
 npm run dp-isolate-fixtures:list
 npm run dp-isolate-fixtures:capture -- no-attack-zone-dps --description "No DPs in Attack Zone"
 npm run dp-isolate-fixtures:restore -- no-attack-zone-dps --yes
+npm run dp-isolate-fixtures:restore -- no-attack-zone-dps --yes --preset dp-isolate
+npm run dp-isolate-fixtures:restore-clean -- --yes
 ```
 
 Restoring a fixture runs `mongorestore --drop` against the configured database,
 so treat it as a destructive replacement of the local lab DB state. Snapshot
 archives are stored under `fixtures/dp-isolate/` and ignored by git.
+
+Use `dp-isolate-fixtures:restore-clean` when the current local DB is dirty and
+must not be captured. It restores from `mongodb://10.20.4.110:27017/sdcc` by
+default.

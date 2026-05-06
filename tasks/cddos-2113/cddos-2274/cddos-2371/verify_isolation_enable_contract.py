@@ -114,7 +114,9 @@ def _check_diversion_py(root):
     _assert_contains(checks, 'Topology is rebuilt for Attack Zone', isolate_text, r"_build_isolation_topology_for_diversion\(db,\s*diversion,\s*attack_zone_id\)")
     _assert_contains(checks, 'Topology update uses TASK_ACTION.UPDATE', isolate_text, r"['\"]action['\"]:\s*TASK_ACTION\.UPDATE")
     _assert_contains(checks, 'update_incident is called', isolate_text, r"update_incident\(data=data,\s*db=db,\s*db_stats=db_stats,\s*incident_id=incident\['_id'\]\)")
-    _assert_contains(checks, 'Success writes isolated audit state', isolate_text, r"['\"]isolation_state['\"].*['\"]isolated['\"]:\s*True.*['\"]trigger['\"]:\s*trigger_source")
+    _assert_contains(checks, 'Success writes isolated audit state', isolate_text, r"['\"]isolation_state['\"]\]\s*=\s*IsolationState\(.*isolated\s*=\s*True.*trigger\s*=\s*trigger_source")
+    _assert_contains(checks, 'Deactivated diversions are excluded from isolation validation', validate_text, r"_get_active_diversions\(incident\)")
+    _assert_contains(checks, 'Isolation topology excludes deactivated diversions', isolate_text, r"active_diversions\s*=\s*_get_active_diversions\(incident\).*for diversion in active_diversions")
 
     return checks
 

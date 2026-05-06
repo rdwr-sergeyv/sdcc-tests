@@ -6,6 +6,19 @@ const sdccTestsRoot = path.resolve(__dirname, '../..');
 const fixturesRoot = path.join(sdccTestsRoot, 'fixtures', 'dp-isolate');
 const defaultContainer = process.env.LEGACY_PORTAL_MONGO_CONTAINER || 'legacy-portal-mongo-1';
 const defaultDatabase = process.env.SDCC_MONGO_DB || 'sdcc';
+const collectionPresets = {
+  'dp-isolate': [
+    'DPZones',
+    'Accounts',
+    'ScrubbingCenters',
+    'Assets',
+    'Incidents',
+    'BackupIncidents',
+    'Tasks',
+    'AssetTasksLogs',
+    'Alerts',
+  ],
+};
 
 function usage(lines) {
   console.log(lines.join('\n'));
@@ -19,6 +32,9 @@ function parseArgs(argv) {
     description: '',
     container: defaultContainer,
     db: defaultDatabase,
+    sourceUri: process.env.DP_ISOLATE_CLEAN_MONGO_URI || '',
+    collections: [],
+    preset: '',
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -33,6 +49,12 @@ function parseArgs(argv) {
       args.container = argv[++i] || '';
     } else if (arg === '--db') {
       args.db = argv[++i] || '';
+    } else if (arg === '--source-uri') {
+      args.sourceUri = argv[++i] || '';
+    } else if (arg === '--collections') {
+      args.collections = (argv[++i] || '').split(',').map((item) => item.trim()).filter(Boolean);
+    } else if (arg === '--preset') {
+      args.preset = argv[++i] || '';
     } else if (arg.startsWith('--')) {
       fail(`Unknown option: ${arg}`);
     } else {
@@ -41,6 +63,29 @@ function parseArgs(argv) {
   }
 
   return args;
+}
+
+function resolveCollections(args) {
+  const collections = [...args.collections];
+  if (args.preset) {
+    const presetCollections = collectionPresets[args.preset];
+    if (!presetCollections) {
+      fail(`Unknown collection preset: ${args.preset}`);
+    }
+    collections.push(...presetCollections);
+  }
+
+  const seen = new Set();
+  return collections.filter((collection) => {
+    if (!/^[A-Za-z0-9_.-]+$/.test(collection)) {
+      fail(`Invalid collection name: ${collection}`);
+    }
+    if (seen.has(collection)) {
+      return false;
+    }
+    seen.add(collection);
+    return true;
+  });
 }
 
 function validateFixtureName(name) {
@@ -135,6 +180,7 @@ module.exports = {
   manifestPath,
   parseArgs,
   readManifest,
+  resolveCollections,
   run,
   usage,
   validateFixtureName,

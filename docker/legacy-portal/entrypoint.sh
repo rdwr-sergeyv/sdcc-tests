@@ -6,6 +6,9 @@ mkdir -p /var/log/sdcc /var/lib/sdcc/core /var/lib/sdcc/portal /var/lock/sdcc
 : "${SDCC_MONGO_HOST:=mongo}"
 : "${SDCC_MONGO_PORT:=27017}"
 : "${SDCC_MONGO_DB:=sdcc}"
+: "${SDCC_BACKEND_NAME:=docker}"
+: "${SDCC_BACKEND_ROLE:=hybrid}"
+: "${SDCC_BACKEND_IP:=127.0.0.1}"
 
 cat > /etc/sdcc/sdcc.conf <<EOF
 portal:
@@ -37,8 +40,9 @@ rb:
   password:
 
 backend:
-  name: docker
-  role: hybrid
+  name: ${SDCC_BACKEND_NAME}
+  ip_addr: ${SDCC_BACKEND_IP}
+  role: ${SDCC_BACKEND_ROLE}
 EOF
 
 if [ "${SDCC_DOCKER_BOOTSTRAP_DB:-1}" = "1" ]; then
@@ -89,6 +93,28 @@ if raw_db.GlobalSettings.find_one({"name": "branding"}) is None:
             }
         }
     })
+
+backend_name = os.environ.get("SDCC_BACKEND_NAME", "docker")
+backend_role = os.environ.get("SDCC_BACKEND_ROLE", "hybrid")
+backend_ip = os.environ.get("SDCC_BACKEND_IP", "127.0.0.1")
+raw_db.Backends.update_one(
+    {"name": backend_name},
+    {
+        "$setOnInsert": {
+            "name": backend_name,
+            "ssh_user": "sdcc",
+            "ssh_passwd": "",
+            "licensed_modules": {},
+            "replicate_backup": False,
+        },
+        "$set": {
+            "ip_addr": backend_ip,
+            "role": backend_role,
+            "active": True,
+        },
+    },
+    upsert=True,
+)
 PY
 fi
 
