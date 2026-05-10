@@ -9,6 +9,7 @@ const {
   run,
   usage,
   validateFixtureName,
+  validateCollectionNames,
   writeJson,
   ensureMongoContainer,
 } = require('./lib.cjs');
@@ -19,6 +20,7 @@ const name = validateFixtureName(args._[0]);
 if (args._.length !== 1) {
   usage([
     'Usage: npm run dp-isolate-fixtures:capture -- <name> [--description "..."] [--force] [--container name] [--db sdcc]',
+    '       npm run dp-isolate-fixtures:capture -- <name> --exclude-collections ModulesRuntimeStats',
     '',
     'Creates fixtures/dp-isolate/<name>/sdcc.archive.gz from the running Mongo container.',
   ]);
@@ -38,7 +40,8 @@ if (fs.existsSync(archive) && !args.force) {
 fs.mkdirSync(dir, { recursive: true });
 
 const remoteArchive = `/tmp/dp-isolate-${name}-${Date.now()}.archive.gz`;
-run('docker', [
+const excludeCollections = validateCollectionNames(args.excludeCollections);
+const dumpArgs = [
   'exec',
   args.container,
   'mongodump',
@@ -46,7 +49,11 @@ run('docker', [
   args.db,
   `--archive=${remoteArchive}`,
   '--gzip',
-]);
+];
+for (const collection of excludeCollections) {
+  dumpArgs.push(`--excludeCollection=${collection}`);
+}
+run('docker', dumpArgs);
 run('docker', ['cp', `${args.container}:${remoteArchive}`, archive]);
 run('docker', ['exec', args.container, 'rm', '-f', remoteArchive]);
 
@@ -57,6 +64,7 @@ writeJson(manifest, {
   database: args.db,
   container: args.container,
   archive: path.basename(archive),
+  excludedCollections: excludeCollections,
 });
 
 console.log(`Captured fixture "${name}" at ${archive}`);

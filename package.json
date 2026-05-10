@@ -10,7 +10,8 @@
     "dp-isolate-fixtures:list": "node tools/dp-isolate-fixtures/list.cjs",
     "dp-isolate-fixtures:restore": "node tools/dp-isolate-fixtures/restore.cjs",
     "dp-isolate-fixtures:restore-clean": "node tools/dp-isolate-fixtures/restore-clean.cjs",
-    "playwright": "playwright"
+    "playwright": "playwright",
+    "test:dp-isolate:smoke": "playwright test tests/dp-isolate/dp-isolate-smoke.spec.cjs"
   },
   "devDependencies": {
     "playwright": "^1.59.1",

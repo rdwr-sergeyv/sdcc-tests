@@ -43,6 +43,27 @@ Production runs these through systemd on separate backend roles. The Docker
 harness mirrors that split with one process per container and relies on Compose
 restart policy instead of systemd.
 
+Activate SDCC licensed modules in both backend worker containers:
+
+```bash
+make -C sdcc-tests portal-license-backends
+```
+
+From the workspace root, this equivalent shortcut is also available:
+
+```bash
+make license-backends
+```
+
+The helper runs `sdcc-manage-module` in `incident-manager` and `cmd-executor`
+using `eth0`. Optional overrides:
+
+```bash
+SDCC_LICENSE_IFN=eth0 make -C sdcc-tests portal-license-backends
+SDCC_LICENSE_SERVICES=incident-manager,cmd-executor make -C sdcc-tests portal-license-backends
+SDCC_LICENSE_MODULES=sdcc_cmd_executor,sdcc-alert-manager make -C sdcc-tests portal-license-backends
+```
+
 Reset the seeded database with:
 
 ```bash

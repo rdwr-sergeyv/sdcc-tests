@@ -24,6 +24,7 @@ const commands = {
   'portal-up': portalUp,
   'portal-down': portalDown,
   'portal-logs': portalLogs,
+  'portal-license-backends': portalLicenseBackends,
   'client-up': clientUp,
   'client-down': clientDown,
   'client-logs': clientLogs,
@@ -65,6 +66,7 @@ function help() {
   make portal-up               Start legacy portal Docker Compose stack
   make portal-down             Stop legacy portal Docker Compose stack
   make portal-logs             Show recent legacy portal Docker logs
+  make portal-license-backends Activate SDCC licensed modules in backend containers
   make client-up               Start DP Isolate Vite client in the background
   make client-down             Stop the background DP Isolate client
   make client-logs             Show recent DP Isolate client logs
@@ -78,6 +80,9 @@ Environment:
   DP_ISOLATE_CLIENT_PORT       Client port, default ${clientPort}
   PORTAL_ORIGIN                Vite proxy target, default ${portalUrl}
   DP_ISOLATE_COMPOSE_PROFILE   Compose profile, default internal-mongo
+  SDCC_LICENSE_IFN             Container interface for license generation, default eth0
+  SDCC_LICENSE_MODULES         Comma-separated module names, default all
+  SDCC_LICENSE_SERVICES        Comma-separated backend services, default incident-manager,cmd-executor
 `);
 }
 
@@ -139,6 +144,33 @@ async function portalDown() {
 
 async function portalLogs() {
   await runDockerComposeLive(['logs', '--tail', '120']);
+}
+
+async function portalLicenseBackends() {
+  console.log('Activating SDCC licensed modules in backend containers...');
+  console.log('Checking Docker CLI...');
+  ensureCommand('docker', ['--version'], 'Docker CLI is required.');
+
+  const services = parseListEnv('SDCC_LICENSE_SERVICES', ['incident-manager', 'cmd-executor']);
+  const ifn = process.env.SDCC_LICENSE_IFN || readEnv('SDCC_LICENSE_IFN') || 'eth0';
+  const modules = parseListEnv('SDCC_LICENSE_MODULES', ['all']);
+  const moduleArgs = modules.map(shellQuote).join(' ');
+
+  for (const service of services) {
+    console.log(`\n[${service}] Activating modules "${modules.join(', ')}" using interface ${ifn}...`);
+    await runDockerComposeLive([
+      'exec',
+      '-T',
+      service,
+      'sh',
+      '-lc',
+      [
+        `sdcc-manage-module -a deactivate -m ${moduleArgs} || true`,
+        `sdcc-manage-module -a activate -i ${shellQuote(ifn)} -m ${moduleArgs}`,
+        'sdcc-manage-module -a list',
+      ].join(' && '),
+    ]);
+  }
 }
 
 async function portalRebuild() {
@@ -276,6 +308,17 @@ function stripQuotes(value) {
     return value.slice(1, -1);
   }
   return value;
+}
+
+function parseListEnv(name, defaults) {
+  const raw = process.env[name] || readEnv(name);
+  if (!raw) return defaults;
+  const values = raw.split(',').map((item) => item.trim()).filter(Boolean);
+  return values.length ? values : defaults;
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
 function dockerCompose(args) {

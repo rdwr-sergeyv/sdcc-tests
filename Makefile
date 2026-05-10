@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help run-dp-isolate dp-isolate dp-isolate\:start dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status status dp-isolate-status portal-up portal-down portal-logs client-up client-down client-logs open-dp-isolate logs stop clean
+.PHONY: help run-dp-isolate dp-isolate dp-isolate\:start dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status status dp-isolate-status portal-up portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
 
 help:
 	@node tools/dp-isolate-dev.cjs help
@@ -35,6 +35,9 @@ portal-down:
 
 portal-logs:
 	@node tools/dp-isolate-dev.cjs portal-logs
+
+portal-license-backends:
+	@node tools/dp-isolate-dev.cjs portal-license-backends
 
 client-up:
 	@node tools/dp-isolate-dev.cjs client-up

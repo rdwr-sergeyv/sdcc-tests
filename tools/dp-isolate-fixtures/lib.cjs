@@ -34,6 +34,7 @@ function parseArgs(argv) {
     db: defaultDatabase,
     sourceUri: process.env.DP_ISOLATE_CLEAN_MONGO_URI || '',
     collections: [],
+    excludeCollections: [],
     preset: '',
   };
 
@@ -53,6 +54,8 @@ function parseArgs(argv) {
       args.sourceUri = argv[++i] || '';
     } else if (arg === '--collections') {
       args.collections = (argv[++i] || '').split(',').map((item) => item.trim()).filter(Boolean);
+    } else if (arg === '--exclude-collections') {
+      args.excludeCollections = (argv[++i] || '').split(',').map((item) => item.trim()).filter(Boolean);
     } else if (arg === '--preset') {
       args.preset = argv[++i] || '';
     } else if (arg.startsWith('--')) {
@@ -65,16 +68,7 @@ function parseArgs(argv) {
   return args;
 }
 
-function resolveCollections(args) {
-  const collections = [...args.collections];
-  if (args.preset) {
-    const presetCollections = collectionPresets[args.preset];
-    if (!presetCollections) {
-      fail(`Unknown collection preset: ${args.preset}`);
-    }
-    collections.push(...presetCollections);
-  }
-
+function validateCollectionNames(collections) {
   const seen = new Set();
   return collections.filter((collection) => {
     if (!/^[A-Za-z0-9_.-]+$/.test(collection)) {
@@ -86,6 +80,19 @@ function resolveCollections(args) {
     seen.add(collection);
     return true;
   });
+}
+
+function resolveCollections(args) {
+  const collections = [...args.collections];
+  if (args.preset) {
+    const presetCollections = collectionPresets[args.preset];
+    if (!presetCollections) {
+      fail(`Unknown collection preset: ${args.preset}`);
+    }
+    collections.push(...presetCollections);
+  }
+
+  return validateCollectionNames(collections);
 }
 
 function validateFixtureName(name) {
@@ -184,6 +191,7 @@ module.exports = {
   run,
   usage,
   validateFixtureName,
+  validateCollectionNames,
   writeJson,
   ensureMongoContainer,
 };

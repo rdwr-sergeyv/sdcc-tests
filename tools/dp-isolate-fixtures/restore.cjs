@@ -65,6 +65,19 @@ if (collections.length) {
 run('docker', restoreArgs);
 run('docker', ['exec', args.container, 'rm', '-f', remoteArchive]);
 
+const excludedCollections = Array.isArray(manifest.excludedCollections) ? manifest.excludedCollections : [];
+if (!collections.length && excludedCollections.length) {
+  run('docker', [
+    'exec',
+    args.container,
+    'mongosh',
+    db,
+    '--quiet',
+    '--eval',
+    `void ${JSON.stringify(excludedCollections)}.forEach((collection) => db.getCollection(collection).drop())`,
+  ]);
+}
+
 if (collections.length) {
   console.log(`Restored fixture "${name}" collections into database "${db}" on container "${args.container}":`);
   for (const collection of collections) {
@@ -72,4 +85,7 @@ if (collections.length) {
   }
 } else {
   console.log(`Restored fixture "${name}" into database "${db}" on container "${args.container}".`);
+  if (excludedCollections.length) {
+    console.log(`Dropped excluded collection(s): ${excludedCollections.join(', ')}`);
+  }
 }
