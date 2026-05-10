@@ -57,7 +57,7 @@ function restoreReadyForTests() {
     config.LEGACY_PORTAL_MONGO_CONTAINER || 'legacy-portal-mongo-1',
     '--db',
     config.SDCC_MONGO_DB || 'sdcc',
-  ]);
+  ], { capture: true });
 }
 
 function docker(args, options = {}) {
