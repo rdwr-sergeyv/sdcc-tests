@@ -1,0 +1,63 @@
+@baseUrl = http://localhost:8000/api
+@username = twister@example.com
+@password = d0sattack
+@assetId = 5e5bb8fa2cbdfd02c6581656
+
+### Login
+# IntelliJ HTTP Client stores response cookies automatically for the same host.
+POST {{baseUrl}}/auth/
+Content-Type: application/json
+
+{
+  "u": "{{username}}",
+  "p": "{{password}}"
+}
+
+### Enable Isolation - manual trigger
+# Expected success or no-op: 200 {"reply":"OK"}
+POST {{baseUrl}}/incident/isolation/enable/{{assetId}}
+Content-Type: application/json
+
+{
+  "trigger": "manual"
+}
+
+### Enable Isolation - auto trigger
+# Expected success or no-op: 200 {"reply":"OK"}
+POST {{baseUrl}}/incident/isolation/enable/{{assetId}}
+Content-Type: application/json
+
+{
+  "trigger": "auto"
+}
+
+### Disable Isolation / Rollback
+# Expected success or no-op: 200 {"reply":"OK"}
+POST {{baseUrl}}/incident/isolation/disable/{{assetId}}
+Content-Type: application/json
+
+{}
+
+### Enable Isolation - invalid trigger falls back to manual
+POST {{baseUrl}}/incident/isolation/enable/{{assetId}}
+Content-Type: application/json
+
+{
+  "trigger": "invalid-value"
+}
+
+### Enable Isolation - malformed asset id
+# The route only matches 24-character hex ObjectIds, so malformed ids may route-miss.
+POST {{baseUrl}}/incident/isolation/enable/not-an-object-id
+Content-Type: application/json
+
+{
+  "trigger": "manual"
+}
+
+### Disable Isolation - malformed asset id
+# The route only matches 24-character hex ObjectIds, so malformed ids may route-miss.
+POST {{baseUrl}}/incident/isolation/disable/not-an-object-id
+Content-Type: application/json
+
+{}

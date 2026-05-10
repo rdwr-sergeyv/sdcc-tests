@@ -1,0 +1,334 @@
+{
+  "info": {
+    "name": "DP Isolate API",
+    "description": "Postman examples for DP Isolate enable/disable endpoints. Set baseUrl, assetId, and auth cookies/session according to the target environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api",
+      "type": "string"
+    },
+    {
+      "key": "assetId",
+      "value": "5e5bb8fa2cbdfd02c6581656",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "twister@example.com",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "d0sattack",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u\": \"{{username}}\",\n  \"p\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                ""
+              ]
+            },
+            "description": "Logs into the legacy portal API. Postman should retain the returned session cookies for the following requests."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Happy Path",
+      "item": [
+        {
+          "name": "Enable Isolation - manual trigger",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trigger\": \"manual\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/incident/isolation/enable/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "incident",
+                "isolation",
+                "enable",
+                "{{assetId}}"
+              ]
+            },
+            "description": "Moves the active incident for assetId into Attack Zone. Expected response for success or no-op: 200 {\"reply\":\"OK\"}."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"trigger\": \"manual\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/incident/isolation/enable/{{assetId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "incident",
+                    "isolation",
+                    "enable",
+                    "{{assetId}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"reply\": \"OK\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Enable Isolation - auto trigger",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trigger\": \"auto\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/incident/isolation/enable/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "incident",
+                "isolation",
+                "enable",
+                "{{assetId}}"
+              ]
+            },
+            "description": "Same as manual enable, but persists isolation_state.trigger as auto."
+          },
+          "response": []
+        },
+        {
+          "name": "Disable Isolation / Rollback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/incident/isolation/disable/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "incident",
+                "isolation",
+                "disable",
+                "{{assetId}}"
+              ]
+            },
+            "description": "Rolls an isolated active incident back to the asset account zone. Expected response for success or no-op: 200 {\"reply\":\"OK\"}."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/incident/isolation/disable/{{assetId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "incident",
+                    "isolation",
+                    "disable",
+                    "{{assetId}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"reply\": \"OK\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Edge / Error Examples",
+      "item": [
+        {
+          "name": "Enable Isolation - invalid trigger falls back to manual",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trigger\": \"invalid-value\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/incident/isolation/enable/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "incident",
+                "isolation",
+                "enable",
+                "{{assetId}}"
+              ]
+            },
+            "description": "Backend treats any trigger other than manual/auto as manual."
+          },
+          "response": []
+        },
+        {
+          "name": "Enable Isolation - malformed asset id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trigger\": \"manual\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/incident/isolation/enable/not-an-object-id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "incident",
+                "isolation",
+                "enable",
+                "not-an-object-id"
+              ]
+            },
+            "description": "The route only matches 24-character hex ObjectIds, so malformed ids may be handled as a route miss by the portal."
+          },
+          "response": []
+        },
+        {
+          "name": "Disable Isolation - malformed asset id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/incident/isolation/disable/not-an-object-id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "incident",
+                "isolation",
+                "disable",
+                "not-an-object-id"
+              ]
+            },
+            "description": "The route only matches 24-character hex ObjectIds, so malformed ids may be handled as a route miss by the portal."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
