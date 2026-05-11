@@ -440,6 +440,8 @@ test.describe.serial('DP Isolate API', () => {
     });
   });
 
+  // CDDOS-2275: rollback API coverage for success, best-effort DP refill, no-op guards, queue conflicts,
+  // rollback lock conflicts, and operator-admin authorization.
   test('rolls isolated incident back to the account zone', async ({ request }) => {
     const baseUrl = await login(request);
 
@@ -581,6 +583,8 @@ test.describe.serial('DP Isolate API', () => {
     });
   });
 
+  // CDDOS-2277: update-during-isolation coverage. These tests prove stale account-zone payloads,
+  // selected-DP replacements, and newly added SC legs are forced to Attack Zone.
   test('keeps isolated incident updates in Attack Zone when the request carries a stale account zone', async ({ request }) => {
     const baseUrl = await login(request);
     await enableIsolation(request, baseUrl);
