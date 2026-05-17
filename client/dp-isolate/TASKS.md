@@ -56,5 +56,6 @@ Do not sync this file directly to Jira without review.
 
 ## Open Checks
 
+- [ ] Prepare an intermediate base Docker image with pre-installed system/Python/Node libraries to reduce portal rebuild time.
 - [ ] Check whether the lab and its devices are accessible from home.
 - [ ] If lab device access works, run backend containers that can perform actual device configuration updates.
