@@ -20,8 +20,10 @@ const clientUrl = `http://localhost:${clientPort}`;
 const commands = {
   help,
   run,
+  'run-ui-only': runUiOnly,
   status,
   'portal-up': portalUp,
+  'portal-ui-up': portalUiUp,
   'portal-down': portalDown,
   'portal-logs': portalLogs,
   'portal-license-backends': portalLicenseBackends,
@@ -57,7 +59,9 @@ function help() {
   console.log(`Usage:
   make                         Show this help
   make run-dp-isolate          Start legacy portal, start DP Isolate client, open browser
+  make run-dp-isolate-ui-only  Start Mongo, portal, and DP Isolate client only
   make dp-isolate:start        Same as run-dp-isolate
+  make dp-isolate:ui-only      Same as run-dp-isolate-ui-only
   make dp-isolate:restart      Restart existing portal stack without rebuilding; restart client
   make dp-isolate:rebuild      Rebuild/recreate portal, restart client, open browser
   make dp-isolate:stop         Stop client and portal
@@ -68,6 +72,7 @@ function help() {
   make task-snapshot           Same as dp-isolate:task-snapshot
   make status                  Show portal/client status
   make portal-up               Start legacy portal Docker Compose stack
+  make portal-ui-up            Start only Mongo and portal; keep worker services stopped
   make portal-down             Stop legacy portal Docker Compose stack
   make portal-logs             Show recent legacy portal Docker logs
   make portal-license-backends Activate SDCC licensed modules in backend containers
@@ -92,6 +97,12 @@ Environment:
 
 async function run() {
   await portalUp();
+  await clientUp();
+  await openClient();
+}
+
+async function runUiOnly() {
+  await portalUiUp();
   await clientUp();
   await openClient();
 }
@@ -125,6 +136,27 @@ async function portalUp() {
   ensureCommand('docker', ['--version'], 'Docker CLI is required.');
   await runDockerComposeLive(args);
   await waitForUrl(portalUrl, 120000, 'legacy portal');
+}
+
+async function portalUiUp() {
+  const profile = Object.hasOwn(process.env, 'DP_ISOLATE_COMPOSE_PROFILE')
+    ? process.env.DP_ISOLATE_COMPOSE_PROFILE
+    : 'internal-mongo';
+  const services = profile && profile !== 'none' ? ['mongo', 'portal'] : ['portal'];
+  const args = profile && profile !== 'none'
+    ? ['--profile', profile, 'up', '--build', '-d', ...services]
+    : ['up', '--build', '-d', ...services];
+  console.log(`Starting legacy portal UI-only stack (${profile && profile !== 'none' ? `profile: ${profile}` : 'no profile'})...`);
+  console.log('Checking Docker CLI...');
+  ensureCommand('docker', ['--version'], 'Docker CLI is required.');
+  await runDockerComposeLive(args);
+  await stopWorkersIfPresent();
+  await waitForUrl(portalUrl, 120000, 'legacy portal');
+}
+
+async function stopWorkersIfPresent() {
+  console.log('Ensuring backend worker services are stopped...');
+  await runDockerComposeLive(['stop', 'incident-manager', 'cmd-executor']);
 }
 
 async function portalRestart() {
