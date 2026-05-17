@@ -134,7 +134,7 @@
           ]
         },
         {
-          "name": "Enable Isolation - auto trigger",
+          "name": "Enable Isolation - automatic trigger",
           "request": {
             "method": "POST",
             "header": [
@@ -145,7 +145,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"trigger\": \"auto\"\n}"
+              "raw": "{\n  \"trigger\": \"automatic\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/incident/isolation/enable/{{assetId}}",
@@ -159,7 +159,7 @@
                 "{{assetId}}"
               ]
             },
-            "description": "Same as manual enable, but persists isolation_state.trigger as auto."
+            "description": "Same as manual enable, but persists isolation_state.trigger as automatic."
           },
           "response": []
         },
@@ -239,7 +239,7 @@
       "name": "Edge / Error Examples",
       "item": [
         {
-          "name": "Enable Isolation - invalid trigger falls back to manual",
+          "name": "Enable Isolation - invalid trigger",
           "request": {
             "method": "POST",
             "header": [
@@ -264,7 +264,7 @@
                 "{{assetId}}"
               ]
             },
-            "description": "Backend treats any trigger other than manual/auto as manual."
+            "description": "Backend rejects any trigger other than manual/automatic."
           },
           "response": []
         },

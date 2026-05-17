@@ -278,20 +278,54 @@ test.describe.serial('DP Isolate API', () => {
     expect(after.taskStatuses).not.toContain('failed');
   });
 
-  test('uses auto trigger when requested', async ({ request }) => {
+  test('uses automatic trigger when requested', async ({ request }) => {
     const baseUrl = await login(request);
 
     const response = await request.post(`${baseUrl}/api/incident/isolation/enable/${HAPPY_ASSET_ID}`, {
-      data: { trigger: 'auto' },
+      data: { trigger: 'automatic' },
     });
     expect(response.status(), await response.text()).toBe(200);
 
     const after = incidentSnapshot(HAPPY_ASSET_ID);
     expect(after).toMatchObject({
       isolated: true,
-      isolationTrigger: 'auto',
+      isolationTrigger: 'automatic',
     });
     expect(after.activeDiversionZones).toEqual([after.attackZoneId]);
+  });
+
+  test('rejects enable with an invalid trigger', async ({ request }) => {
+    const baseUrl = await login(request);
+
+    const response = await request.post(`${baseUrl}/api/incident/isolation/enable/${HAPPY_ASSET_ID}`, {
+      data: { trigger: 'invalid-value' },
+    });
+    expect(response.status(), await response.text()).toBe(400);
+    expect(await response.json()).toEqual({
+      error: { message: 'Invalid trigger. Expected one of: manual, automatic' },
+    });
+    expect(incidentSnapshot(HAPPY_ASSET_ID)).toMatchObject({
+      isolated: false,
+      taskCount: 0,
+      backupIncidentCount: 0,
+    });
+  });
+
+  test('rejects enable with a missing trigger', async ({ request }) => {
+    const baseUrl = await login(request);
+
+    const response = await request.post(`${baseUrl}/api/incident/isolation/enable/${HAPPY_ASSET_ID}`, {
+      data: {},
+    });
+    expect(response.status(), await response.text()).toBe(400);
+    expect(await response.json()).toEqual({
+      error: { message: 'Invalid trigger. Expected one of: manual, automatic' },
+    });
+    expect(incidentSnapshot(HAPPY_ASSET_ID)).toMatchObject({
+      isolated: false,
+      taskCount: 0,
+      backupIncidentCount: 0,
+    });
   });
 
   test('rejects enable when the active scrubbing center lacks enough Attack Zone DefensePros', async ({ request }) => {
@@ -419,7 +453,7 @@ test.describe.serial('DP Isolate API', () => {
     });
   });
 
-  test('requires operator admin privileges for enable', async ({ request }) => {
+  test('requires operator role for enable', async ({ request }) => {
     const baseUrl = await login(request);
     mongoEval(`db.Users.updateOne(
       { email: 'twister@example.com' },
@@ -441,7 +475,7 @@ test.describe.serial('DP Isolate API', () => {
   });
 
   // CDDOS-2275: rollback API coverage for success, best-effort DP refill, no-op guards, queue conflicts,
-  // rollback lock conflicts, and operator-admin authorization.
+  // rollback lock conflicts, and operator-role authorization.
   test('rolls isolated incident back to the account zone', async ({ request }) => {
     const baseUrl = await login(request);
 
@@ -565,7 +599,7 @@ test.describe.serial('DP Isolate API', () => {
     expect(after.activeDiversionZones).toEqual([after.attackZoneId]);
   });
 
-  test('requires operator admin privileges for disable', async ({ request }) => {
+  test('requires operator role for disable', async ({ request }) => {
     const baseUrl = await login(request);
     await enableIsolation(request, baseUrl);
     mongoEval(`db.Users.updateOne(

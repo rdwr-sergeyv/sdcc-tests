@@ -103,14 +103,33 @@ test.describe.serial('DP Isolate API short mode', () => {
     expect(after.taskActions).toEqual(expect.arrayContaining(['activate', 'deactivate']));
   });
 
-  test('uses auto trigger without waiting for queued work execution', async ({ request }) => {
+  test('uses automatic trigger without waiting for queued work execution', async ({ request }) => {
     const baseUrl = await login(request);
 
-    const after = await enableIsolation(request, baseUrl, HAPPY_ASSET_ID, 'auto');
+    const after = await enableIsolation(request, baseUrl, HAPPY_ASSET_ID, 'automatic');
     expect(after).toMatchObject({
       inQueue: true,
       isolated: true,
-      isolationTrigger: 'auto',
+      isolationTrigger: 'automatic',
+    });
+  });
+
+  test('rejects invalid or missing trigger without backend workers', async ({ request }) => {
+    const baseUrl = await login(request);
+
+    for (const data of [{ trigger: 'invalid-value' }, {}]) {
+      const response = await request.post(`${baseUrl}/api/incident/isolation/enable/${HAPPY_ASSET_ID}`, { data });
+      expect(response.status(), await response.text()).toBe(400);
+      expect(await response.json()).toEqual({
+        error: { message: 'Invalid trigger. Expected one of: manual, automatic' },
+      });
+    }
+
+    expect(incidentSnapshot(HAPPY_ASSET_ID)).toMatchObject({
+      inQueue: false,
+      isolated: false,
+      taskCount: 0,
+      assetTaskLogCount: 0,
     });
   });
 

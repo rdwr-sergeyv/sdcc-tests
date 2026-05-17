@@ -92,6 +92,10 @@ def _check_enable_contract(root):
     checks = []
     _, incident_source, incident_module = _parse(
         root, os.path.join('sdcc-portal', 'sdcc_portal', 'portal', 'api', 'incident.py'))
+    _, enum_source, _ = _parse(
+        root, os.path.join('sdcc', 'sdcc', 'common', 'diversion_tasks', 'enums.py'))
+    _, documents_source, _ = _parse(
+        root, os.path.join('sdcc', 'sdcc', 'common', 'model', 'documents.py'))
     _, diversion_source, diversion_module = _parse(
         root, os.path.join('sdcc', 'sdcc', 'common', 'util', 'diversion.py'))
 
@@ -102,8 +106,10 @@ def _check_enable_contract(root):
 
     _assert_contains(checks, 'CDDOS-2370', 'Enable handler allows POST only', handler_text,
                      r"allowed_methods\s*=\s*\(\s*['\"]POST['\"]\s*,?\s*\)")
-    _assert_contains(checks, 'CDDOS-2370', 'Enable role failure maps to Http403', create_text,
-                     r"OPERATOR_ADMIN.*OPERATOR_SUPER.*Http403")
+    _assert_contains(checks, 'CDDOS-2370', 'Enable uses diversion permission decorator', handler_text,
+                     r"is_action_permitted\(\[PERMISSIONS\[['\"]DIVERSIONS['\"]\]\],\s*['\"]Incidents['\"]\)")
+    _assert_contains(checks, 'CDDOS-2370', 'Enable requires operator role', handler_text,
+                     r"require_operator_role")
     _assert_contains(checks, 'CDDOS-2370', 'Enable missing active incident is OK no-op', create_text,
                      r"find_one\(\{['\"]asset['\"].*['\"]endedAt['\"]:\s*None\}\).*HttpResponse\(\{['\"]reply['\"]:\s*['\"]OK['\"]\}")
     _assert_contains(checks, 'CDDOS-2370', 'Enable Attack Zone account is OK no-op', create_text,
@@ -116,8 +122,12 @@ def _check_enable_contract(root):
                      r"validate_isolation_possible\(self\._db,\s*incident,\s*attack_zone_id=attack_zone_id\).*MongoLock")
     _assert_contains(checks, 'CDDOS-2370', 'Enable lock contention returns 409', create_text,
                      r"lock\(str\(asset_id\).*ErrorRestResult\(.*409")
-    _assert_contains(checks, 'CDDOS-2370', 'Enable accepts manual and auto trigger only', create_text,
-                     r"request\.data\.get\(['\"]trigger['\"],\s*['\"]manual['\"]\).*manual.*auto")
+    _assert_contains(checks, 'CDDOS-2370', 'Isolation trigger enum defines strict API values', enum_source,
+                     r"class\s+ISOLATION_TRIGGER\(Enum\):.*MANUAL\s*=\s*['\"]manual['\"].*AUTOMATIC\s*=\s*['\"]automatic['\"]")
+    _assert_contains(checks, 'CDDOS-2370', 'Isolation state stores trigger enum values only', documents_source,
+                     r"trigger\s*=\s*StringField\(.*choices\s*=\s*ISOLATION_TRIGGER\.values\(\)")
+    _assert_contains(checks, 'CDDOS-2370', 'Enable validates trigger against enum values', create_text,
+                     r"trigger_source\s+not\s+in\s+ISOLATION_TRIGGER.*ErrorRestResult\(.*400")
     _assert_contains(checks, 'CDDOS-2370', 'Enable maps isolation errors through status helper', create_text,
                      r"except\s+IsolationError\s+as\s+err:.*ErrorRestResult\(err,\s*get_isolation_error_status\(err\)\)")
     _assert_contains(checks, 'CDDOS-2370', 'Enable route is registered', incident_source,
@@ -160,14 +170,16 @@ def _check_disable_contract(root):
 
     _assert_contains(checks, 'CDDOS-2275', 'Rollback handler allows POST only', handler_text,
                      r"allowed_methods\s*=\s*\(\s*['\"]POST['\"]\s*,?\s*\)")
-    _assert_contains(checks, 'CDDOS-2275', 'Rollback role failure maps to Http403', create_text,
-                     r"OPERATOR_ADMIN.*OPERATOR_SUPER.*Http403")
+    _assert_contains(checks, 'CDDOS-2275', 'Rollback uses diversion permission decorator', handler_text,
+                     r"is_action_permitted\(\[PERMISSIONS\[['\"]DIVERSIONS['\"]\]\],\s*['\"]Incidents['\"]\)")
+    _assert_contains(checks, 'CDDOS-2275', 'Rollback requires operator role', handler_text,
+                     r"require_operator_role")
     _assert_contains(checks, 'CDDOS-2275', 'Rollback missing active incident is OK no-op', create_text,
                      r"find_one\(\{['\"]asset['\"].*['\"]endedAt['\"]:\s*None\}\).*HttpResponse\(\{['\"]reply['\"]:\s*['\"]OK['\"]\}")
     _assert_contains(checks, 'CDDOS-2275', 'Rollback Attack Zone account is OK no-op', create_text,
                      r"account\.get\(['\"]zone['\"]\)\s*==\s*attack_zone_id")
-    _assert_contains(checks, 'CDDOS-2275', 'Rollback not-isolated incident is OK no-op', create_text,
-                     r"if\s+not\s+\(incident\.get\(['\"]isolation_state['\"]\)\s+or\s+\{\}\)\.get\(['\"]isolated['\"]\)\s*:\s*return\s+HttpResponse")
+    _assert_contains(checks, 'CDDOS-2275', 'Rollback not-isolated incident without Attack Zone diversion is OK no-op', create_text,
+                     r"if\s+not\s+is_isolated\s+and\s+not\s+has_attack_zone_diversion\s*:\s*return\s+HttpResponse")
     _assert_contains(checks, 'CDDOS-2275', 'Rollback in-queue incident returns 409', create_text,
                      r"in_queue.*ErrorRestResult\(.*409")
     _assert_contains(checks, 'CDDOS-2275', 'Rollback uses asset-level MongoLock', create_text,
@@ -226,7 +238,7 @@ def _check_isolated_update_contract(root):
     _assert_true(checks, 'CDDOS-2277', 'update_selected_dps_in_template accepts effective_zone',
                  update_template is not None and any(arg.arg == 'effective_zone' for arg in update_template.args.args))
     _assert_contains(checks, 'CDDOS-2277', 'Manual isolated updates force args zone to Attack Zone', parse_text,
-                     r"if\s+_is_incident_isolated\(incident\):.*args\[['\"]zone['\"]\]\s*=\s*_get_attack_zone_id\(db\)")
+                     r"if\s+_is_incident_isolated\(incident\)\s+and\s+not\s+data\.get\(['\"]rollback_isolation['\"]\):.*args\[['\"]zone['\"]\]\s*=\s*_get_attack_zone_id\(db\)")
     _assert_contains(checks, 'CDDOS-2277', 'Manual isolated updates overwrite request topology zone', parse_text,
                      r"data_topology\[['\"]zone['\"]\]\s*=\s*args\[['\"]zone['\"]\]")
     _assert_contains(checks, 'CDDOS-2277', 'DP-change validation uses Attack Zone while isolated', check_text,
