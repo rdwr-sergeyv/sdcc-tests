@@ -439,6 +439,11 @@ async function sendIsolation(action) {
 
 elements.loginForm.addEventListener('submit', login);
 elements.assetSearch.addEventListener('input', () => {
+  const value = elements.assetSearch.value.trim();
+  if (/^[a-fA-F0-9]{24}$/.test(value)) {
+    elements.assetId.value = value;
+    localStorage.setItem('dpIsolateAssetId', value);
+  }
   renderAssets();
   updateRequestPreview();
 });

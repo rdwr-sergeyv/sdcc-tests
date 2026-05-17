@@ -13,6 +13,7 @@
     "playwright": "playwright",
     "test:dp-isolate": "playwright test tests/dp-isolate",
     "test:dp-isolate:api": "playwright test tests/dp-isolate/dp-isolate-api.spec.cjs",
+    "test:dp-isolate:api-short": "playwright test tests/dp-isolate/dp-isolate-api-short.spec.cjs",
     "test:dp-isolate:smoke": "playwright test tests/dp-isolate/dp-isolate-smoke.spec.cjs"
   },
   "devDependencies": {

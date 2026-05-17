@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help run-dp-isolate run-dp-isolate-ui-only dp-isolate dp-isolate\:start dp-isolate\:ui-only dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status dp-isolate\:restore-ready dp-isolate\:task-snapshot restore-ready task-snapshot status dp-isolate-status portal-up portal-ui-up portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
+.PHONY: help run-dp-isolate run-dp-isolate-ui-only demo-short demo-short-playwright demo-short-resume test-dp-isolate test-dp-isolate-api test-dp-isolate-api-short test-dp-isolate-smoke dp-isolate dp-isolate\:start dp-isolate\:ui-only dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status dp-isolate\:restore-ready dp-isolate\:task-snapshot restore-ready task-snapshot status dp-isolate-status portal-up portal-ui-up portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
 
 help:
 	@node tools/dp-isolate-dev.cjs help
@@ -10,6 +10,38 @@ run-dp-isolate:
 
 run-dp-isolate-ui-only:
 	@node tools/dp-isolate-dev.cjs run-ui-only
+
+demo-short:
+	@bash scripts/dp-isolate-short-demo.sh
+
+demo-short-playwright:
+	@node scripts/dp-isolate-short-demo.playwright.cjs --fresh
+
+demo-short-resume:
+	@node scripts/dp-isolate-short-demo.playwright.cjs --resume
+
+test-dp-isolate:
+	@$(MAKE) portal-up
+	@$(MAKE) portal-license-backends
+	@$(MAKE) restore-ready
+	@npm run test:dp-isolate
+
+test-dp-isolate-api:
+	@$(MAKE) portal-up
+	@$(MAKE) portal-license-backends
+	@$(MAKE) restore-ready
+	@npm run test:dp-isolate:api
+
+test-dp-isolate-api-short:
+	@$(MAKE) portal-ui-up
+	@$(MAKE) restore-ready
+	@npm run test:dp-isolate:api-short
+
+test-dp-isolate-smoke:
+	@$(MAKE) portal-up
+	@$(MAKE) portal-license-backends
+	@$(MAKE) restore-ready
+	@npm run test:dp-isolate:smoke
 
 dp-isolate: run-dp-isolate
 
