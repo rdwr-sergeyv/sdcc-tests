@@ -70,3 +70,16 @@ For a custom matrix, provide `DP_ISOLATE_SCENARIOS_JSON`:
 
 The JSON report is written to
 `sdcc-tests/artifacts/dp-isolate-progress-testing-report.json` by default.
+
+To run the same matrix in task-creation-only mode, stop the worker services and
+disable execution polling:
+
+```powershell
+docker compose -f sdcc-tests/docker/legacy-portal/docker-compose.yml stop incident-manager cmd-executor
+$env:DP_ISOLATE_WAIT_FOR_EXECUTION = "0"
+node sdcc-tests\tasks\cddos-2113\progress-testing\run_isolation_api_matrix.cjs
+```
+
+In this mode the runner checks the immediate HTTP response and whether expected
+`Tasks` / `AssetTasksLogs` were created. It does not wait for `incident-manager`
+or `cmd-executor` to move work into terminal execution states.

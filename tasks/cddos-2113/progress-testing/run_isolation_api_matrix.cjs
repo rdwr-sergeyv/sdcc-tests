@@ -17,6 +17,7 @@ const config = {
   reportPath: process.env.DP_ISOLATE_REPORT || defaultReportPath,
   defaultTimeoutSeconds: Number(process.env.DP_ISOLATE_TASK_TIMEOUT_SECONDS || 180),
   defaultPollSeconds: Number(process.env.DP_ISOLATE_TASK_POLL_SECONDS || 5),
+  defaultWaitForExecution: process.env.DP_ISOLATE_WAIT_FOR_EXECUTION !== '0',
 };
 
 function usage() {
@@ -52,6 +53,7 @@ function usage() {
     '  SDCC_MONGO_DB=sdcc',
     '  DP_ISOLATE_REPORT=artifacts/dp-isolate-progress-testing-report.json',
     '  DP_ISOLATE_TASK_TIMEOUT_SECONDS=180',
+    '  DP_ISOLATE_WAIT_FOR_EXECUTION=0  # only check immediate task/log creation',
     '',
   ].join('\n'));
 }
@@ -119,7 +121,9 @@ function normalizeScenario(scenario, index) {
     trigger: scenario.trigger || 'manual',
     expectStatus: scenario.expectStatus,
     expectTasks: scenario.expectTasks || 'any',
-    waitForExecution: scenario.waitForExecution !== false,
+    waitForExecution: scenario.waitForExecution !== undefined
+      ? scenario.waitForExecution !== false
+      : config.defaultWaitForExecution,
     timeoutSeconds: Number(scenario.timeoutSeconds || config.defaultTimeoutSeconds),
     pollSeconds: Number(scenario.pollSeconds || config.defaultPollSeconds),
   };
