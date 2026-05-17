@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help run-dp-isolate dp-isolate dp-isolate\:start dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status status dp-isolate-status portal-up portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
+.PHONY: help run-dp-isolate dp-isolate dp-isolate\:start dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status dp-isolate\:restore-ready dp-isolate\:task-snapshot restore-ready task-snapshot status dp-isolate-status portal-up portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
 
 help:
 	@node tools/dp-isolate-dev.cjs help
@@ -21,6 +21,16 @@ dp-isolate\:rebuild:
 dp-isolate\:stop: stop
 
 dp-isolate\:status: status
+
+dp-isolate\:restore-ready:
+	@npm run dp-isolate-fixtures:restore -- ready-for-tests --yes --preset dp-isolate
+
+dp-isolate\:task-snapshot:
+	@node tools/dp-isolate-task-snapshot.cjs $(ASSET_ID)
+
+restore-ready: dp-isolate\:restore-ready
+
+task-snapshot: dp-isolate\:task-snapshot
 
 status:
 	@node tools/dp-isolate-dev.cjs status

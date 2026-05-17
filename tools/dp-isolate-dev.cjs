@@ -62,6 +62,10 @@ function help() {
   make dp-isolate:rebuild      Rebuild/recreate portal, restart client, open browser
   make dp-isolate:stop         Stop client and portal
   make dp-isolate:status       Show portal/client status
+  make dp-isolate:restore-ready Restore the ready-for-tests DP Isolate fixture
+  make dp-isolate:task-snapshot Show isolation task/log summary for ASSET_ID
+  make restore-ready           Same as dp-isolate:restore-ready
+  make task-snapshot           Same as dp-isolate:task-snapshot
   make status                  Show portal/client status
   make portal-up               Start legacy portal Docker Compose stack
   make portal-down             Stop legacy portal Docker Compose stack
