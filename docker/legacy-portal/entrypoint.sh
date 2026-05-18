@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-mkdir -p /var/log/sdcc /var/lib/sdcc/core /var/lib/sdcc/portal /var/lock/sdcc
+mkdir -p /var/log/sdcc /var/lib/sdcc/core/device_templates /var/lib/sdcc/portal /var/lock/sdcc
 
 : "${SDCC_MONGO_HOST:=mongo}"
 : "${SDCC_MONGO_PORT:=27017}"
@@ -9,10 +9,13 @@ mkdir -p /var/log/sdcc /var/lib/sdcc/core /var/lib/sdcc/portal /var/lock/sdcc
 : "${SDCC_BACKEND_NAME:=docker}"
 : "${SDCC_BACKEND_ROLE:=hybrid}"
 : "${SDCC_BACKEND_IP:=127.0.0.1}"
+: "${SDCC_TASK_TYPE:=build}"
 
 cat > /etc/sdcc/sdcc.conf <<EOF
 portal:
   debug: true
+
+force_diversion_type: ${SDCC_TASK_TYPE}
 
 log:
   logdir: /var/log/sdcc
