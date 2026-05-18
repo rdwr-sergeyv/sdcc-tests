@@ -59,12 +59,12 @@ Do not sync this file directly to Jira without review.
 ### Current priorities
 
 - [x] Prepare an intermediate base Docker image with pre-installed system/Python/Node libraries to reduce portal rebuild time.
-- [ ] add a case which tests an invalid ISOLATION_TRIGGER value;
-- [ ] add test case: there are not enough DPs with unallocated policies by setting max policy count to 1 and trying to enable isolation on an incident with 2 DPs that have no policies; expected result: the same error as it's triggered by existing incident create/update;
-- [ ] introduce "build-only" testing mode; "build" and "provision" are existing stages of the task handling by cmd-exec; "build-only" means tasks are marked as "done" after dependency resolution and other prerequisite steps but without actually running the commands against the devices; could require temporary code changes in the api under test;
-- [ ] add an isolated DP to the current set of 2 DPs to test (??)
+- [x] add a case which tests an invalid ISOLATION_TRIGGER value;
+- [x] add test case: there are not enough DPs with unallocated policies by setting max policy count to 1 and trying to enable isolation on an incident with 2 DPs that have no policies; expected result: the same error as it's triggered by existing incident create/update;
+- [x] introduce "build-only" testing mode; "build" and "provision" are existing stages of the task handling by cmd-exec; "build-only" means tasks are marked as "done" after dependency resolution and other prerequisite steps but without actually running the commands against the devices; could require temporary code changes in the api under test;
 
 ### Later/optional
 
+- [ ] add an isolated DP to the current set of 2 DPs to test (??)
 - [ ] Check whether the lab and its devices are accessible from home.
 - [ ] If lab device access works, run backend containers that can perform actual device configuration updates.

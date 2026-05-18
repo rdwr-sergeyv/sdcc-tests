@@ -142,6 +142,29 @@ function prepareAdditionalScAttackZoneDps(scId = ADDITIONAL_SC_ID) {
   })()`);
 }
 
+function exhaustAttackZoneDpPolicySlots(scId = PRIMARY_SC_ID) {
+  mongoEval(`(() => {
+    const attackZone = db.DPZones.findOne({ name: 'attack_zone' })._id;
+    const sc = db.ScrubbingCenters.findOne({ _id: ObjectId('${scId}') });
+    const attackZoneDpIds = (sc.management_devices || [])
+      .filter((device) => device.type === 'radware-defensepro' && String(device.zone) === String(attackZone))
+      .map((device) => device.unique_id);
+
+    db.ScrubbingCenters.updateOne(
+      { _id: sc._id },
+      { $set: { 'management_devices.$[dp].max_policies': 1 } },
+      { arrayFilters: [{ 'dp.unique_id': { $in: attackZoneDpIds } }] }
+    );
+    db.ScrubbingCenterDeviceStatuses.updateMany(
+      {
+        '_id.scrubbing_center': sc._id,
+        '_id.device_uid': { $in: attackZoneDpIds },
+      },
+      { $set: { op_status: 1, num_policies: 1 } }
+    );
+  })()`);
+}
+
 function staleZoneUpdatePayload(assetId, options = {}) {
   const optionsJson = JSON.stringify(options);
   return mongoJson(`(() => {
@@ -343,6 +366,29 @@ test.describe.serial('DP Isolate API', () => {
     });
 
     const after = incidentSnapshot(INSUFFICIENT_ATTACK_ZONE_DPS_ASSET_ID);
+    expect(after).toMatchObject({
+      inQueue: false,
+      isolated: false,
+      taskCount: 0,
+      backupIncidentCount: 0,
+    });
+  });
+
+  test('rejects enable when Attack Zone DefensePros have no free policy slots', async ({ request }) => {
+    exhaustAttackZoneDpPolicySlots();
+    const baseUrl = await login(request);
+
+    const response = await request.post(`${baseUrl}/api/incident/isolation/enable/${HAPPY_ASSET_ID}`, {
+      data: { trigger: 'manual' },
+    });
+    expect(response.status(), await response.text()).toBe(422);
+    expect(await response.json()).toEqual({
+      error: {
+        message: 'Scrubbing Center 5e08d6bc2cbdfd701f0c2936 does not have enough Attack Zone DefensePro devices',
+      },
+    });
+
+    const after = incidentSnapshot(HAPPY_ASSET_ID);
     expect(after).toMatchObject({
       inQueue: false,
       isolated: false,

@@ -20,9 +20,11 @@ const clientUrl = `http://localhost:${clientPort}`;
 const commands = {
   help,
   run,
+  'run-build-only': runBuildOnly,
   'run-ui-only': runUiOnly,
   status,
   'portal-up': portalUp,
+  'portal-build-only-up': portalBuildOnlyUp,
   'portal-ui-up': portalUiUp,
   'portal-down': portalDown,
   'portal-logs': portalLogs,
@@ -59,12 +61,14 @@ function help() {
   console.log(`Usage:
   make                         Show this help
   make run-dp-isolate          Start legacy portal, start DP Isolate client, open browser
+  make run-dp-isolate-build-only Start full stack with build-only task execution, start client, open browser
   make run-dp-isolate-ui-only  Start Mongo, portal, and DP Isolate client only
   make demo-short              Run the paused short Attack Isolation UI demo
   make demo-short-playwright   Run the paused/resumable Playwright short demo
   make demo-short-resume       Resume the Playwright short demo from saved step
   make test-dp-isolate         Start full backend, restore fixture, run all DP Isolate tests
   make test-dp-isolate-api     Start full backend, restore fixture, run DP Isolate API tests
+  make test-dp-isolate-api-build-only Start build-only backend, restore fixture, run DP Isolate API tests
   make test-dp-isolate-api-short Start portal only, restore fixture, run short API tests
   make test-dp-isolate-smoke   Start full backend, restore fixture, run DP Isolate smoke tests
   make dp-isolate:start        Same as run-dp-isolate
@@ -79,6 +83,7 @@ function help() {
   make task-snapshot           Same as dp-isolate:task-snapshot
   make status                  Show portal/client status
   make portal-up               Start legacy portal Docker Compose stack
+  make portal-build-only-up    Start full stack with SDCC_TASK_TYPE=build
   make portal-ui-up            Start only Mongo and portal; keep worker services stopped
   make portal-down             Stop legacy portal Docker Compose stack
   make portal-logs             Show recent legacy portal Docker logs
@@ -99,11 +104,18 @@ Environment:
   SDCC_LICENSE_IFN             Container interface for license generation, default eth0
   SDCC_LICENSE_MODULES         Comma-separated module names, default all
   SDCC_LICENSE_SERVICES        Comma-separated backend services, default incident-manager,cmd-executor
+  SDCC_TASK_TYPE                Set to build for command build-only mode
 `);
 }
 
 async function run() {
   await portalUp();
+  await clientUp();
+  await openClient();
+}
+
+async function runBuildOnly() {
+  await portalBuildOnlyUp();
   await clientUp();
   await openClient();
 }
@@ -143,6 +155,12 @@ async function portalUp() {
   ensureCommand('docker', ['--version'], 'Docker CLI is required.');
   await runDockerComposeLive(args);
   await waitForUrl(portalUrl, 120000, 'legacy portal');
+}
+
+async function portalBuildOnlyUp() {
+  process.env.SDCC_TASK_TYPE = 'build';
+  console.log('Build-only task execution is enabled with SDCC_TASK_TYPE=build.');
+  await portalUp();
 }
 
 async function portalUiUp() {
