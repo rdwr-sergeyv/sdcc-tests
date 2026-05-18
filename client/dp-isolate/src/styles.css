@@ -60,10 +60,23 @@ h2 {
   line-height: 1.25;
 }
 
+h3 {
+  margin: 0 0 8px;
+  color: #24313d;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
 p,
 .muted {
   color: #657282;
   margin-top: 4px;
+}
+
+p code {
+  color: #3b4652;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 13px;
 }
 
 .result-meta {
@@ -155,6 +168,31 @@ button.secondary:hover {
   width: 18px;
   height: 18px;
   margin: 0;
+}
+
+.demo-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.guide-column {
+  min-width: 0;
+  border-left: 3px solid #d8e0e7;
+  padding-left: 12px;
+}
+
+.guide-column ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: #3b4652;
+  line-height: 1.35;
+}
+
+.guide-column li::marker {
+  color: #24699f;
 }
 
 .asset-list {
@@ -401,6 +439,10 @@ pre {
   }
 
   .history-row {
+    grid-template-columns: 1fr;
+  }
+
+  .demo-guide {
     grid-template-columns: 1fr;
   }
 

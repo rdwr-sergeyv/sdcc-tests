@@ -64,6 +64,7 @@ function help() {
   make run-dp-isolate-build-only Compatibility alias for run-dp-isolate
   make run-dp-isolate-ui-only  Start Mongo, portal, and DP Isolate client only
   make demo-short              Run the paused short Attack Isolation UI demo
+  make demo-playwright         Run the paused Playwright demo with build-only backend workers
   make demo-short-playwright   Run the paused/resumable Playwright short demo
   make demo-short-resume       Resume the Playwright short demo from saved step
   make test-dp-isolate         Start full backend in build-only task mode, restore fixture, run all DP Isolate tests
