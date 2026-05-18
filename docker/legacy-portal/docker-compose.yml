@@ -31,7 +31,7 @@ services:
       SDCC_BACKEND_NAME: ${SDCC_BACKEND_NAME:-docker}
       SDCC_BACKEND_IP: ${SDCC_BACKEND_IP:-127.0.0.1}
       SDCC_BACKEND_ROLE: ${SDCC_BACKEND_ROLE:-hybrid}
-      SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-}
+      SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-build}
     ports:
       - "${LEGACY_PORTAL_PORT:-8000}:8000"
 
@@ -51,7 +51,7 @@ services:
       SDCC_BACKEND_NAME: ${SDCC_MAIN_BACKEND_NAME:-docker-main}
       SDCC_BACKEND_IP: ${SDCC_MAIN_BACKEND_IP:-127.0.0.2}
       SDCC_BACKEND_ROLE: master
-      SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-}
+      SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-build}
     restart: unless-stopped
     command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-incident-manager.lck && exec sdcc-incident-manager.py --debug true"]
 
@@ -71,6 +71,6 @@ services:
       SDCC_BACKEND_NAME: ${SDCC_MONITOR_BACKEND_NAME:-docker-monitor}
       SDCC_BACKEND_IP: ${SDCC_MONITOR_BACKEND_IP:-127.0.0.3}
       SDCC_BACKEND_ROLE: monitor
-      SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-}
+      SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-build}
     restart: unless-stopped
     command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-cmd-executor.lck && exec sdcc-cmd-executor.py --debug true"]

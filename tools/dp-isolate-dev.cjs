@@ -60,17 +60,17 @@ async function main() {
 function help() {
   console.log(`Usage:
   make                         Show this help
-  make run-dp-isolate          Start legacy portal, start DP Isolate client, open browser
-  make run-dp-isolate-build-only Start full stack with build-only task execution, start client, open browser
+  make run-dp-isolate          Start legacy portal in build-only task mode, start DP Isolate client, open browser
+  make run-dp-isolate-build-only Compatibility alias for run-dp-isolate
   make run-dp-isolate-ui-only  Start Mongo, portal, and DP Isolate client only
   make demo-short              Run the paused short Attack Isolation UI demo
   make demo-short-playwright   Run the paused/resumable Playwright short demo
   make demo-short-resume       Resume the Playwright short demo from saved step
-  make test-dp-isolate         Start full backend, restore fixture, run all DP Isolate tests
-  make test-dp-isolate-api     Start full backend, restore fixture, run DP Isolate API tests
-  make test-dp-isolate-api-build-only Start build-only backend, restore fixture, run DP Isolate API tests
+  make test-dp-isolate         Start full backend in build-only task mode, restore fixture, run all DP Isolate tests
+  make test-dp-isolate-api     Start full backend in build-only task mode, restore fixture, run DP Isolate API tests
+  make test-dp-isolate-api-build-only Compatibility alias for test-dp-isolate-api
   make test-dp-isolate-api-short Start portal only, restore fixture, run short API tests
-  make test-dp-isolate-smoke   Start full backend, restore fixture, run DP Isolate smoke tests
+  make test-dp-isolate-smoke   Start full backend in build-only task mode, restore fixture, run DP Isolate smoke tests
   make dp-isolate:start        Same as run-dp-isolate
   make dp-isolate:ui-only      Same as run-dp-isolate-ui-only
   make dp-isolate:restart      Restart existing portal stack without rebuilding; restart client
@@ -82,8 +82,8 @@ function help() {
   make restore-ready           Same as dp-isolate:restore-ready
   make task-snapshot           Same as dp-isolate:task-snapshot
   make status                  Show portal/client status
-  make portal-up               Start legacy portal Docker Compose stack
-  make portal-build-only-up    Start full stack with SDCC_TASK_TYPE=build
+  make portal-up               Start legacy portal Docker Compose stack in build-only task mode
+  make portal-build-only-up    Compatibility alias for portal-up
   make portal-ui-up            Start only Mongo and portal; keep worker services stopped
   make portal-down             Stop legacy portal Docker Compose stack
   make portal-logs             Show recent legacy portal Docker logs
@@ -104,7 +104,7 @@ Environment:
   SDCC_LICENSE_IFN             Container interface for license generation, default eth0
   SDCC_LICENSE_MODULES         Comma-separated module names, default all
   SDCC_LICENSE_SERVICES        Comma-separated backend services, default incident-manager,cmd-executor
-  SDCC_TASK_TYPE                Set to build for command build-only mode
+  SDCC_TASK_TYPE                Task execution type, default build; set to provisioning to execute device commands
 `);
 }
 
@@ -115,9 +115,7 @@ async function run() {
 }
 
 async function runBuildOnly() {
-  await portalBuildOnlyUp();
-  await clientUp();
-  await openClient();
+  await run();
 }
 
 async function runUiOnly() {
@@ -144,6 +142,7 @@ async function status() {
 }
 
 async function portalUp() {
+  ensureTaskTypeDefault();
   const profile = Object.hasOwn(process.env, 'DP_ISOLATE_COMPOSE_PROFILE')
     ? process.env.DP_ISOLATE_COMPOSE_PROFILE
     : 'internal-mongo';
@@ -158,8 +157,6 @@ async function portalUp() {
 }
 
 async function portalBuildOnlyUp() {
-  process.env.SDCC_TASK_TYPE = 'build';
-  console.log('Build-only task execution is enabled with SDCC_TASK_TYPE=build.');
   await portalUp();
 }
 
@@ -185,6 +182,13 @@ async function stopWorkersIfPresent() {
 }
 
 async function portalRestart() {
+  ensureTaskTypeDefault();
+  const profile = Object.hasOwn(process.env, 'DP_ISOLATE_COMPOSE_PROFILE')
+    ? process.env.DP_ISOLATE_COMPOSE_PROFILE
+    : 'internal-mongo';
+  const args = profile && profile !== 'none'
+    ? ['--profile', profile, 'up', '-d']
+    : ['up', '-d'];
   console.log('Restarting legacy portal Docker Compose stack without rebuilding...');
   console.log('Checking Docker CLI...');
   ensureCommand('docker', ['--version'], 'Docker CLI is required.');
@@ -194,7 +198,7 @@ async function portalRestart() {
     await portalUp();
     return;
   }
-  await runDockerComposeLive(['restart']);
+  await runDockerComposeLive(args);
   await waitForUrl(portalUrl, 120000, 'legacy portal');
 }
 
@@ -235,6 +239,7 @@ async function portalLicenseBackends() {
 }
 
 async function portalRebuild() {
+  ensureTaskTypeDefault();
   const profile = Object.hasOwn(process.env, 'DP_ISOLATE_COMPOSE_PROFILE')
     ? process.env.DP_ISOLATE_COMPOSE_PROFILE
     : 'internal-mongo';
@@ -316,6 +321,11 @@ async function restart() {
   await portalRestart();
   await clientUp();
   await openClient();
+}
+
+function ensureTaskTypeDefault() {
+  process.env.SDCC_TASK_TYPE = process.env.SDCC_TASK_TYPE || readEnv('SDCC_TASK_TYPE') || 'build';
+  console.log(`Task execution type: ${process.env.SDCC_TASK_TYPE}`);
 }
 
 async function rebuild() {

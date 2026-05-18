@@ -14,6 +14,11 @@ Run from `sdcc-tests`:
 make run-dp-isolate
 ```
 
+Full backend modes default to build-only task execution
+(`SDCC_TASK_TYPE=build`), so generated commands are built and tasks can finish
+without sending commands to lab devices. Set `SDCC_TASK_TYPE=provisioning`
+explicitly only when the backend should execute device commands.
+
 For client-only development:
 
 ```bash

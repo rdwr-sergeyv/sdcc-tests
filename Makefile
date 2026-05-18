@@ -9,7 +9,7 @@ run-dp-isolate:
 	@node tools/dp-isolate-dev.cjs run
 
 run-dp-isolate-build-only:
-	@node tools/dp-isolate-dev.cjs run-build-only
+	@node tools/dp-isolate-dev.cjs run
 
 run-dp-isolate-ui-only:
 	@node tools/dp-isolate-dev.cjs run-ui-only
@@ -36,7 +36,7 @@ test-dp-isolate-api:
 	@npm run test:dp-isolate:api
 
 test-dp-isolate-api-build-only:
-	@$(MAKE) portal-build-only-up
+	@$(MAKE) portal-up
 	@$(MAKE) portal-license-backends
 	@$(MAKE) restore-ready
 	@npm run test:dp-isolate:api
@@ -89,7 +89,7 @@ portal-up:
 	@node tools/dp-isolate-dev.cjs portal-up
 
 portal-build-only-up:
-	@node tools/dp-isolate-dev.cjs portal-build-only-up
+	@node tools/dp-isolate-dev.cjs portal-up
 
 portal-ui-up:
 	@node tools/dp-isolate-dev.cjs portal-ui-up

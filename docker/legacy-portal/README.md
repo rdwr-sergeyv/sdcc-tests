@@ -39,6 +39,11 @@ incident-manager -> sdcc-incident-manager.py, backend role: master
 cmd-executor     -> sdcc-cmd-executor.py, backend role: monitor
 ```
 
+Backend-involved helper modes default to `SDCC_TASK_TYPE=build`. In this mode
+`cmd-executor` builds/generated commands and marks tasks complete without
+executing commands on devices. Override with `SDCC_TASK_TYPE=provisioning` only
+for a lab run that should touch devices.
+
 Production runs these through systemd on separate backend roles. The Docker
 harness mirrors that split with one process per container and relies on Compose
 restart policy instead of systemd.

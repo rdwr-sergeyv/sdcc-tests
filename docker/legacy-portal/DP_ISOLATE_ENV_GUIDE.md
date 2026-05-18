@@ -82,6 +82,11 @@ The split matters:
 - `cmd-executor` moves tasks from `pending` to `in_progress`, then `done` or
   `failed`.
 
+The local helper defaults backend-involved modes to `SDCC_TASK_TYPE=build`.
+That lets `cmd-executor` resolve dependencies and build/generated commands
+without executing them against devices. Set `SDCC_TASK_TYPE=provisioning`
+explicitly only for a lab run that should execute commands on devices.
+
 If only the portal is running, API calls can create tasks but execution may not
 finish.
 
