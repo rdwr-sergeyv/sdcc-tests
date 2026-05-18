@@ -278,18 +278,18 @@ test.describe.serial('DP Isolate API', () => {
     expect(after.taskStatuses).not.toContain('failed');
   });
 
-  test('uses automatic trigger when requested', async ({ request }) => {
+  test('uses auto trigger when requested', async ({ request }) => {
     const baseUrl = await login(request);
 
     const response = await request.post(`${baseUrl}/api/incident/isolation/enable/${HAPPY_ASSET_ID}`, {
-      data: { trigger: 'automatic' },
+      data: { trigger: 'auto' },
     });
     expect(response.status(), await response.text()).toBe(200);
 
     const after = incidentSnapshot(HAPPY_ASSET_ID);
     expect(after).toMatchObject({
       isolated: true,
-      isolationTrigger: 'automatic',
+      isolationTrigger: 'auto',
     });
     expect(after.activeDiversionZones).toEqual([after.attackZoneId]);
   });
@@ -302,7 +302,7 @@ test.describe.serial('DP Isolate API', () => {
     });
     expect(response.status(), await response.text()).toBe(400);
     expect(await response.json()).toEqual({
-      error: { message: 'Invalid trigger. Expected one of: manual, automatic' },
+      error: { message: 'Invalid trigger. Expected one of: manual, auto' },
     });
     expect(incidentSnapshot(HAPPY_ASSET_ID)).toMatchObject({
       isolated: false,
@@ -319,7 +319,7 @@ test.describe.serial('DP Isolate API', () => {
     });
     expect(response.status(), await response.text()).toBe(400);
     expect(await response.json()).toEqual({
-      error: { message: 'Invalid trigger. Expected one of: manual, automatic' },
+      error: { message: 'Invalid trigger. Expected one of: manual, auto' },
     });
     expect(incidentSnapshot(HAPPY_ASSET_ID)).toMatchObject({
       isolated: false,

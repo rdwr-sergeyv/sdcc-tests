@@ -134,7 +134,7 @@
           ]
         },
         {
-          "name": "Enable Isolation - automatic trigger",
+          "name": "Enable Isolation - auto trigger",
           "request": {
             "method": "POST",
             "header": [
@@ -145,7 +145,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"trigger\": \"automatic\"\n}"
+              "raw": "{\n  \"trigger\": \"auto\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/incident/isolation/enable/{{assetId}}",
@@ -159,7 +159,7 @@
                 "{{assetId}}"
               ]
             },
-            "description": "Same as manual enable, but persists isolation_state.trigger as automatic."
+            "description": "Same as manual enable, but persists isolation_state.trigger as auto."
           },
           "response": []
         },
@@ -264,7 +264,7 @@
                 "{{assetId}}"
               ]
             },
-            "description": "Backend rejects any trigger other than manual/automatic."
+            "description": "Backend rejects any trigger other than manual/auto."
           },
           "response": []
         },

@@ -123,7 +123,7 @@ def _check_enable_contract(root):
     _assert_contains(checks, 'CDDOS-2370', 'Enable lock contention returns 409', create_text,
                      r"lock\(str\(asset_id\).*ErrorRestResult\(.*409")
     _assert_contains(checks, 'CDDOS-2370', 'Isolation trigger enum defines strict API values', enum_source,
-                     r"class\s+ISOLATION_TRIGGER\(Enum\):.*MANUAL\s*=\s*['\"]manual['\"].*AUTOMATIC\s*=\s*['\"]automatic['\"]")
+                     r"class\s+ISOLATION_TRIGGER\(Enum\):.*MANUAL\s*=\s*['\"]manual['\"].*AUTO\s*=\s*['\"]auto['\"]")
     _assert_contains(checks, 'CDDOS-2370', 'Isolation state stores trigger enum values only', documents_source,
                      r"trigger\s*=\s*StringField\(.*choices\s*=\s*ISOLATION_TRIGGER\.values\(\)")
     _assert_contains(checks, 'CDDOS-2370', 'Enable validates trigger against enum values', create_text,

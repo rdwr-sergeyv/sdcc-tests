@@ -22,13 +22,13 @@ Content-Type: application/json
   "trigger": "manual"
 }
 
-### Enable Isolation - automatic trigger
+### Enable Isolation - auto trigger
 # Expected success or no-op: 200 {"reply":"OK"}
 POST {{baseUrl}}/incident/isolation/enable/{{assetId}}
 Content-Type: application/json
 
 {
-  "trigger": "automatic"
+  "trigger": "auto"
 }
 
 ### Disable Isolation / Rollback
