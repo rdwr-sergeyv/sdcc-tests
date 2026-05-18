@@ -342,7 +342,7 @@ button.secondary:hover {
 
 .segmented {
   display: inline-grid;
-  grid-template-columns: repeat(2, minmax(92px, 1fr));
+  grid-template-columns: repeat(3, minmax(92px, 1fr));
   width: fit-content;
   border: 1px solid #b8c4cf;
   border-radius: 6px;

@@ -62,6 +62,7 @@ Do not sync this file directly to Jira without review.
 - [x] add a case which tests an invalid ISOLATION_TRIGGER value;
 - [x] add test case: there are not enough DPs with unallocated policies by setting max policy count to 1 and trying to enable isolation on an incident with 2 DPs that have no policies; expected result: the same error as it's triggered by existing incident create/update;
 - [x] introduce "build-only" testing mode; "build" and "provision" are existing stages of the task handling by cmd-exec; "build-only" means tasks are marked as "done" after dependency resolution and other prerequisite steps but without actually running the commands against the devices; could require temporary code changes in the api under test;
+- [ ] pass, validate, and store `ISOLATION_TRIGGER` on rollback/disable exactly the same way as isolate/enable; add logs that explicitly say which trigger value was received/used for both enable and disable flows;
 
 ### Later/optional
 
