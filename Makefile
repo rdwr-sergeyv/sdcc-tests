@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help run-dp-isolate run-dp-isolate-build-only run-dp-isolate-ui-only demo-short demo-playwright demo-short-playwright demo-short-resume test-dp-isolate test-dp-isolate-api test-dp-isolate-api-build-only test-dp-isolate-api-short test-dp-isolate-smoke dp-isolate dp-isolate\:start dp-isolate\:build-only dp-isolate\:ui-only dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status dp-isolate\:restore-ready dp-isolate\:task-snapshot restore-ready task-snapshot status dp-isolate-status portal-up portal-build-only-up portal-ui-up portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
+.PHONY: help run-dp-isolate run-dp-isolate-build-only run-dp-isolate-ui-only demo-short demo-playwright demo-short-playwright demo-short-resume test-dp-isolate test-dp-isolate-api test-dp-isolate-api-build-only test-dp-isolate-api-short test-dp-isolate-smoke dp-isolate dp-isolate\:start dp-isolate\:build-only dp-isolate\:ui-only dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status dp-isolate\:restore-ready dp-isolate\:task-snapshot dp-isolate\:policy-capacity-min dp-isolate\:policy-capacity-restore restore-ready task-snapshot policy-capacity-min policy-capacity-restore status dp-isolate-status portal-up portal-build-only-up portal-ui-up portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
 
 help:
 	@node tools/dp-isolate-dev.cjs help
@@ -79,9 +79,19 @@ dp-isolate\:restore-ready:
 dp-isolate\:task-snapshot:
 	@node tools/dp-isolate-task-snapshot.cjs $(ASSET_ID)
 
+dp-isolate\:policy-capacity-min:
+	@node tools/dp-isolate-policy-capacity.cjs min
+
+dp-isolate\:policy-capacity-restore:
+	@node tools/dp-isolate-policy-capacity.cjs restore
+
 restore-ready: dp-isolate\:restore-ready
 
 task-snapshot: dp-isolate\:task-snapshot
+
+policy-capacity-min: dp-isolate\:policy-capacity-min
+
+policy-capacity-restore: dp-isolate\:policy-capacity-restore
 
 status:
 	@node tools/dp-isolate-dev.cjs status

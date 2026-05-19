@@ -80,8 +80,12 @@ function help() {
   make dp-isolate:status       Show portal/client status
   make dp-isolate:restore-ready Restore the ready-for-tests DP Isolate fixture
   make dp-isolate:task-snapshot Show isolation task/log summary for ASSET_ID
+  make dp-isolate:policy-capacity-min Set Attack Zone DP policy capacity to the minimum
+  make dp-isolate:policy-capacity-restore Restore Attack Zone DP policy capacity defaults
   make restore-ready           Same as dp-isolate:restore-ready
   make task-snapshot           Same as dp-isolate:task-snapshot
+  make policy-capacity-min     Same as dp-isolate:policy-capacity-min
+  make policy-capacity-restore Same as dp-isolate:policy-capacity-restore
   make status                  Show portal/client status
   make portal-up               Start legacy portal Docker Compose stack in build-only task mode
   make portal-build-only-up    Compatibility alias for portal-up
