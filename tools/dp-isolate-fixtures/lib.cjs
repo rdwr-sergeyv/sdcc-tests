@@ -149,9 +149,20 @@ function run(command, args, options = {}) {
 }
 
 function ensureMongoContainer(container) {
-  const running = run('docker', ['inspect', '-f', '{{.State.Running}}', container], { capture: true }).trim();
+  const inspect = spawnSync('docker', ['inspect', '-f', '{{.State.Running}}', container], {
+    cwd: sdccTestsRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (inspect.error) {
+    fail(`Docker CLI is required to restore fixtures: ${inspect.error.message}`);
+  }
+  if (inspect.status !== 0) {
+    fail(`Mongo container "${container}" does not exist. Start the lab first with "make lab-start" or "make lab-ui" from the cddos-legacy root.`);
+  }
+  const running = String(inspect.stdout || '').trim();
   if (running !== 'true') {
-    fail(`Docker container "${container}" is not running.`);
+    fail(`Mongo container "${container}" is not running. Start the lab first with "make lab-start" or "make lab-ui" from the cddos-legacy root.`);
   }
 }
 

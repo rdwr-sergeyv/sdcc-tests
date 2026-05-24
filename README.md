@@ -35,6 +35,7 @@ Defaults:
 - Legacy portal: `http://localhost:8000`
 - DP Isolate client: `http://localhost:5173`
 - Docker Compose profile: `internal-mongo`
+- Node.js: 18+
 
 Override with environment variables such as `LEGACY_PORTAL_PORT`,
 `DP_ISOLATE_CLIENT_PORT`, `PORTAL_ORIGIN`, and `DP_ISOLATE_COMPOSE_PROFILE`.
