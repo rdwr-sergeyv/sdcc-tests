@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help run-dp-isolate run-dp-isolate-build-only run-dp-isolate-ui-only demo-short demo-playwright demo-short-playwright demo-short-resume test-dp-isolate test-dp-isolate-api test-dp-isolate-api-build-only test-dp-isolate-api-short test-dp-isolate-smoke dp-isolate dp-isolate\:start dp-isolate\:build-only dp-isolate\:ui-only dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status dp-isolate\:restore-ready dp-isolate\:task-snapshot dp-isolate\:policy-capacity-min dp-isolate\:policy-capacity-restore restore-ready task-snapshot policy-capacity-min policy-capacity-restore status dp-isolate-status portal-up portal-build-only-up portal-ui-up portal-restart portal-rebuild portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
+.PHONY: help run-dp-isolate run-dp-isolate-build-only run-dp-isolate-ui-only demo-short demo-playwright demo-short-playwright demo-short-resume test-dp-isolate test-dp-isolate-api test-dp-isolate-api-build-only test-dp-isolate-api-short test-dp-isolate-smoke dp-isolate dp-isolate\:start dp-isolate\:build-only dp-isolate\:ui-only dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status dp-isolate\:restore-ready dp-isolate\:patch-pending-task-deps dp-isolate\:task-snapshot dp-isolate\:policy-capacity-min dp-isolate\:policy-capacity-restore restore-ready patch-pending-task-deps task-snapshot policy-capacity-min policy-capacity-restore status dp-isolate-status portal-up portal-build-only-up portal-ui-up portal-restart portal-rebuild portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
 
 help:
 	@node tools/dp-isolate-dev.cjs help
@@ -76,6 +76,16 @@ dp-isolate\:status: status
 dp-isolate\:restore-ready:
 	@npm run dp-isolate-fixtures:restore -- ready-for-tests --yes --preset dp-isolate
 
+dp-isolate\:patch-pending-task-deps:
+	@container="$${LEGACY_PORTAL_MONGO_CONTAINER:-legacy-portal-mongo-1}"; \
+	db="$${SDCC_MONGO_DB:-sdcc}"; \
+	if [ "$$(docker inspect -f '{{.State.Running}}' "$$container" 2>/dev/null)" != "true" ]; then \
+		echo "  [missing] Mongo container $$container is not running."; \
+		echo "  Start the lab first with 'make lab-start' or 'make lab-ui' from the cddos-legacy root."; \
+		exit 1; \
+	fi; \
+	docker exec "$$container" mongosh "$$db" --quiet --eval 'const query = {status: "pending", $$or: [{dependencies: null}, {dependencies: {$$exists: false}}]}; const before = db.Tasks.countDocuments(query); const result = db.Tasks.updateMany(query, {$$set: {dependencies: []}}); printjson({matched: result.matchedCount, modified: result.modifiedCount, remaining: db.Tasks.countDocuments(query)});'
+
 dp-isolate\:task-snapshot:
 	@node tools/dp-isolate-task-snapshot.cjs $(ASSET_ID)
 
@@ -86,6 +96,8 @@ dp-isolate\:policy-capacity-restore:
 	@node tools/dp-isolate-policy-capacity.cjs restore
 
 restore-ready: dp-isolate\:restore-ready
+
+patch-pending-task-deps: dp-isolate\:patch-pending-task-deps
 
 task-snapshot: dp-isolate\:task-snapshot
 
