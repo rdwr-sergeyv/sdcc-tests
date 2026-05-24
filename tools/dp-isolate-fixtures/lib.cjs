@@ -10,6 +10,12 @@ const collectionPresets = {
   'dp-isolate': [
     'DPZones',
     'Accounts',
+<<<<<<< Updated upstream
+=======
+    'Users',
+    'Roles',
+    'AccountSites',
+>>>>>>> Stashed changes
     'ScrubbingCenters',
     'Assets',
     'Incidents',
