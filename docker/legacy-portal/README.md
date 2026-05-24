@@ -76,7 +76,7 @@ docker compose -f sdcc-tests/docker/legacy-portal/docker-compose.yml down -v
 ```
 
 By default the portal connects to the compose MongoDB service, which bind-mounts
-the legacy host data directory from `LEGACY_PORTAL_MONGO_DB_PATH`.
+the local lab data directory from `LEGACY_PORTAL_MONGO_DB_PATH`.
 
 ```bash
 docker compose -f sdcc-tests/docker/legacy-portal/docker-compose.yml --profile internal-mongo up --build
@@ -101,7 +101,7 @@ SDCC_PORTAL_REPO_PATH=../../../sdcc-portal
 LEGACY_PORTAL_PORT=8000
 LEGACY_PORTAL_MONGO_IMAGE=mongo:8.2
 LEGACY_PORTAL_MONGO_PORT=27017
-LEGACY_PORTAL_MONGO_DB_PATH=C:/data/db
+LEGACY_PORTAL_MONGO_DB_PATH=../../.tmp/legacy-portal-mongo-db
 SDCC_MONGO_HOST=mongo
 SDCC_MONGO_PORT=27017
 SDCC_MONGO_DB=sdcc

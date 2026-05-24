@@ -2,7 +2,8 @@
 
 This directory stores local MongoDB snapshots for the DP Isolate test harness.
 Snapshot archives are intentionally ignored by git because they can contain
-real lab data.
+real lab data. The `ready-for-tests` fixture is the checked-in exception used by
+the top-level lab helpers.
 
 Use from `sdcc-tests`:
 

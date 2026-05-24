@@ -7,7 +7,7 @@ services:
       - "${LEGACY_PORTAL_MONGO_PORT:-27017}:27017"
     volumes:
       - type: bind
-        source: ${LEGACY_PORTAL_MONGO_DB_PATH:-C:/data/db}
+        source: ${LEGACY_PORTAL_MONGO_DB_PATH:-../../.tmp/legacy-portal-mongo-db}
         target: /data/db
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]

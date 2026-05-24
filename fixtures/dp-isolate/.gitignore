@@ -1,3 +1,6 @@
 *
 !.gitignore
 !README.md
+!ready-for-tests/
+!ready-for-tests/manifest.json
+!ready-for-tests/sdcc.archive.gz

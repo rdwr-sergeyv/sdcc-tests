@@ -1,0 +1,28 @@
+{
+  "name": "ready-for-tests",
+  "description": "with-attack-zone-dps restored and runtime/history collections omitted",
+  "createdAt": "2026-05-10T09:08:44.392Z",
+  "database": "sdcc",
+  "container": "legacy-portal-mongo-1",
+  "archive": "sdcc.archive.gz",
+  "excludedCollections": [
+    "ModulesRuntimeStats",
+    "Alerts",
+    "ModuleCycles",
+    "Episodes",
+    "MigrationLog",
+    "MigrationLog_copy_24_2_25",
+    "Accounts_copy_24_2_25",
+    "Assets_copy_24_2_25",
+    "AccountAudits",
+    "DeletedScrubbingCenters",
+    "AssetTasksLogs",
+    "BackupIncidents",
+    "AssetProtectionPolicies",
+    "DeletedAssets",
+    "DeletedObjects",
+    "UserMessages",
+    "UserNotificationsStatistics",
+    "rb_cmd_executor"
+  ]
+}

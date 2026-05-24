@@ -36,6 +36,7 @@ logs/
 # Local dev configuration/secrets
 .env
 .env.local
+!docker/legacy-portal/.env
 
 # OS/editor
 .DS_Store
