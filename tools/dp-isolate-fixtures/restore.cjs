@@ -63,7 +63,7 @@ if (collections.length) {
 }
 
 run('docker', restoreArgs);
-run('docker', ['exec', args.container, 'rm', '-f', remoteArchive]);
+run('docker', ['exec', '-u', 'root', args.container, 'rm', '-f', remoteArchive]);
 
 const excludedCollections = Array.isArray(manifest.excludedCollections) ? manifest.excludedCollections : [];
 if (!collections.length && excludedCollections.length) {
