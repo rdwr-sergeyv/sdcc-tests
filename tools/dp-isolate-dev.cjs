@@ -26,6 +26,8 @@ const commands = {
   'portal-up': portalUp,
   'portal-build-only-up': portalBuildOnlyUp,
   'portal-ui-up': portalUiUp,
+  'portal-restart': portalRestart,
+  'portal-rebuild': portalRebuild,
   'portal-down': portalDown,
   'portal-logs': portalLogs,
   'portal-license-backends': portalLicenseBackends,
@@ -90,6 +92,8 @@ function help() {
   make portal-up               Start legacy portal Docker Compose stack in build-only task mode
   make portal-build-only-up    Compatibility alias for portal-up
   make portal-ui-up            Start only Mongo and portal; keep worker services stopped
+  make portal-restart          Restart existing legacy portal Docker Compose stack without rebuilding
+  make portal-rebuild          Rebuild/recreate legacy portal Docker Compose stack
   make portal-down             Stop legacy portal Docker Compose stack
   make portal-logs             Show recent legacy portal Docker logs
   make portal-license-backends Activate SDCC licensed modules in backend containers
