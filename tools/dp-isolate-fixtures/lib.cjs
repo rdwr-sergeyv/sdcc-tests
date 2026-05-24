@@ -40,7 +40,6 @@ const collectionPresets = {
     'ScrubbingCenters',
     'ServiceSettings',
     'Services',
-    'Sessions',
     'Settings',
     'Tasks',
     'Tokens',
