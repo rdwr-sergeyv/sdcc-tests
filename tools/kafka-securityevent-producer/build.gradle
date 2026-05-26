@@ -1,0 +1,32 @@
+plugins {
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+// Pin exact versions to match sdcc-services/services/common/common-utils/versions.gradle
+dependencies {
+    implementation 'com.esotericsoftware:kryo:5.4.0'          // same as attack-service
+    implementation 'org.tukaani:xz:1.9'                        // same as attack-service
+    implementation 'org.apache.commons:commons-compress:1.21'  // same as attack-service
+    implementation 'org.apache.kafka:kafka-clients:3.0.1'      // same as attack-service
+    implementation 'org.slf4j:slf4j-simple:1.7.36'
+}
+
+application {
+    mainClass = 'com.securitydam.sdcc.tools.kafka.SecurityEventProducer'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+// Allow passing --args from run.sh cleanly
+run {
+    if (project.hasProperty('cliArgs')) {
+        args project.cliArgs.split(' ')
+    }
+}
