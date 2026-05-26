@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security Event Producer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    background: #0f1117;
+    color: #e2e8f0;
+    height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    overflow: hidden;
+  }
+
+  /* ── top bar ── */
+  header {
+    background: #1a1d27;
+    border-bottom: 1px solid #2d3148;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 15px; font-weight: 600; color: #a5b4fc; white-space: nowrap; }
+
+  .settings { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; flex: 1; }
+
+  .field-group { display: flex; align-items: center; gap: 6px; }
+  .field-group label { font-size: 12px; color: #94a3b8; white-space: nowrap; }
+  .field-group input[type=text],
+  .field-group input[type=number] {
+    background: #0f1117;
+    border: 1px solid #2d3148;
+    border-radius: 5px;
+    color: #e2e8f0;
+    padding: 4px 8px;
+    font-size: 13px;
+    width: 180px;
+  }
+  .field-group input:focus { outline: none; border-color: #6366f1; }
+
+  .checkbox-group { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .checkbox-group label { font-size: 12px; color: #94a3b8; cursor: pointer; }
+
+  .btn {
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn-send     { background: #6366f1; color: #fff; }
+  .btn-dryrun   { background: #0f172a; color: #94a3b8; border: 1px solid #2d3148; }
+  .btn-reset    { background: #0f172a; color: #94a3b8; border: 1px solid #2d3148; }
+
+  /* ── main layout: fields | preview + output ── */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+  }
+
+  /* ── fields panel ── */
+  #fields-panel {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #2d3148;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 8px 12px;
+    background: #1a1d27;
+    border-bottom: 1px solid #2d3148;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-header input[type=search] {
+    margin-left: auto;
+    background: #0f1117;
+    border: 1px solid #2d3148;
+    border-radius: 4px;
+    color: #e2e8f0;
+    padding: 3px 8px;
+    font-size: 12px;
+    width: 140px;
+  }
+  .panel-header input[type=search]:focus { outline: none; border-color: #6366f1; }
+
+  #fields-table-wrap { overflow-y: auto; flex: 1; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    position: sticky; top: 0;
+    background: #161925;
+    padding: 6px 10px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    border-bottom: 1px solid #2d3148;
+  }
+  tbody tr { border-bottom: 1px solid #1e2235; }
+  tbody tr:hover { background: #1a1d2a; }
+  tbody tr.modified td:first-child { border-left: 2px solid #6366f1; }
+  td { padding: 5px 10px; vertical-align: middle; }
+
+  td.field-name  { font-family: monospace; font-size: 12px; color: #cbd5e1; width: 220px; }
+  td.field-type  { width: 72px; }
+  td.field-value { }
+
+  .type-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-weight: 600;
+  }
+  .type-Long    { background: #1e3a5f; color: #60a5fa; }
+  .type-Integer { background: #1a3a2a; color: #4ade80; }
+  .type-String  { background: #3b2a1a; color: #fb923c; }
+  .type-Boolean { background: #2d1f3e; color: #c084fc; }
+
+  td.field-value input {
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #e2e8f0;
+    padding: 3px 6px;
+    font-family: monospace;
+    font-size: 12px;
+  }
+  td.field-value input:hover  { border-color: #2d3148; }
+  td.field-value input:focus  { outline: none; border-color: #6366f1; background: #0f1117; }
+
+  /* ── right column: preview + output ── */
+  #right-panel {
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    overflow: hidden;
+  }
+
+  /* ── preview ── */
+  #preview-panel { display: flex; flex-direction: column; border-bottom: 1px solid #2d3148; overflow: hidden; }
+  #preview-body  { overflow-y: auto; flex: 1; padding: 10px 14px; }
+  #preview-body pre {
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .pv-key   { color: #93c5fd; }
+  .pv-str   { color: #fb923c; }
+  .pv-num   { color: #4ade80; }
+  .pv-bool  { color: #c084fc; }
+  .pv-mod   { background: #2d2f1a; border-radius: 3px; padding: 0 2px; }
+
+  /* ── output ── */
+  #output-panel { display: flex; flex-direction: column; overflow: hidden; }
+  #output-body  {
+    overflow-y: auto;
+    flex: 1;
+    padding: 10px 14px;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .out-line { white-space: pre-wrap; word-break: break-all; }
+  .out-meta { color: #64748b; }
+  .out-args { color: #6366f1; }
+  .out-ok   { color: #4ade80; }
+  .out-warn { color: #facc15; }
+  .out-err  { color: #f87171; }
+  .out-done-ok  { color: #4ade80; font-weight: 600; }
+  .out-done-err { color: #f87171; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ── top bar ── -->
+<header>
+  <h1>⚡ Security Event Producer</h1>
+
+  <div class="settings">
+    <div class="field-group">
+      <label>Bootstrap</label>
+      <input type="text" id="s-bootstrap" value="kafkaQA:9092" placeholder="host:port">
+    </div>
+    <div class="field-group">
+      <label>Topic</label>
+      <input type="text" id="s-topic" value="sdcc-mitigation-vision-defensepro-securityevents" style="width:340px">
+    </div>
+    <div class="field-group">
+      <label>Count</label>
+      <input type="number" id="s-count" value="1" min="1" style="width:60px">
+    </div>
+    <div class="field-group">
+      <label>Docker network</label>
+      <input type="text" id="s-network" value="" placeholder="lab (optional)" style="width:120px">
+    </div>
+    <label class="checkbox-group">
+      <input type="checkbox" id="s-compress"> <label for="s-compress">Compress (XZ)</label>
+    </label>
+  </div>
+
+  <button class="btn btn-dryrun" id="btn-dryrun">Dry Run</button>
+  <button class="btn btn-send"   id="btn-send">Send</button>
+  <button class="btn btn-reset"  id="btn-reset">Reset fields</button>
+</header>
+
+<!-- ── main ── -->
+<main>
+
+  <!-- left: fields table -->
+  <div id="fields-panel">
+    <div class="panel-header">
+      Payload fields
+      <span id="modified-count" style="color:#6366f1"></span>
+      <input type="search" id="field-search" placeholder="Filter…">
+    </div>
+    <div id="fields-table-wrap">
+      <table>
+        <thead><tr>
+          <th>Field</th><th>Type</th><th>Value</th>
+        </tr></thead>
+        <tbody id="fields-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- right: preview + output -->
+  <div id="right-panel">
+
+    <div id="preview-panel">
+      <div class="panel-header">Payload preview <span id="preview-note" style="color:#64748b;font-weight:400;text-transform:none;letter-spacing:0;margin-left:4px;font-size:11px">(what will be sent)</span></div>
+      <div id="preview-body"><pre id="preview-pre"></pre></div>
+    </div>
+
+    <div id="output-panel">
+      <div class="panel-header">Output <button id="btn-clear" style="margin-left:auto;background:none;border:none;color:#475569;cursor:pointer;font-size:11px">clear</button></div>
+      <div id="output-body"></div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ── state ──────────────────────────────────────────────────────────────────
+let defaults = [];   // [{ name, value, type }]  loaded from server
+let overrides = {};  // { fieldName: editedValue }
+
+// ── boot ───────────────────────────────────────────────────────────────────
+async function loadFields() {
+  const res = await fetch('/api/fields');
+  defaults = await res.json();
+  overrides = {};
+  renderTable();
+  renderPreview();
+}
+loadFields();
+
+// ── table ──────────────────────────────────────────────────────────────────
+function renderTable() {
+  const q = document.getElementById('field-search').value.toLowerCase();
+  const tbody = document.getElementById('fields-tbody');
+  tbody.innerHTML = '';
+
+  const rows = defaults.filter(f =>
+    !q || f.name.toLowerCase().includes(q) || effectiveValue(f).toLowerCase().includes(q)
+  );
+
+  for (const f of rows) {
+    const modified = overrides[f.name] !== undefined;
+    const val = effectiveValue(f);
+
+    const tr = document.createElement('tr');
+    if (modified) tr.classList.add('modified');
+
+    tr.innerHTML = `
+      <td class="field-name">${f.name}</td>
+      <td class="field-type"><span class="type-badge type-${f.type}">${f.type}</span></td>
+      <td class="field-value"><input data-field="${f.name}" value="${escHtml(val)}" spellcheck="false"></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  tbody.querySelectorAll('input[data-field]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const name = e.target.dataset.field;
+      const def  = defaults.find(f => f.name === name);
+      const newVal = e.target.value;
+      if (newVal === def.value) delete overrides[name];
+      else overrides[name] = newVal;
+      e.target.closest('tr').classList.toggle('modified', overrides[name] !== undefined);
+      renderPreview();
+      updateModifiedCount();
+    });
+  });
+
+  updateModifiedCount();
+}
+
+function effectiveValue(f) {
+  return overrides[f.name] !== undefined ? overrides[f.name] : f.value;
+}
+
+function updateModifiedCount() {
+  const n = Object.keys(overrides).length;
+  document.getElementById('modified-count').textContent = n ? `(${n} modified)` : '';
+}
+
+document.getElementById('field-search').addEventListener('input', renderTable);
+
+// ── preview ────────────────────────────────────────────────────────────────
+function renderPreview() {
+  const pre = document.getElementById('preview-pre');
+  const lines = [];
+  lines.push('{');
+  for (const f of defaults) {
+    const val  = effectiveValue(f);
+    const mod  = overrides[f.name] !== undefined;
+    const key  = `<span class="pv-key">"${f.name}"</span>`;
+    let   vSpan;
+    if (f.type === 'String') {
+      vSpan = `<span class="pv-str ${mod?'pv-mod':''}">"${escHtml(val)}"</span>`;
+    } else if (f.type === 'Boolean') {
+      vSpan = `<span class="pv-bool ${mod?'pv-mod':''}">${val}</span>`;
+    } else {
+      const display = f.type === 'Long' ? val + 'L' : val;
+      vSpan = `<span class="pv-num ${mod?'pv-mod':''}">${escHtml(display)}</span>`;
+    }
+    lines.push(`  ${key}: ${vSpan},`);
+  }
+  lines.push('}');
+  pre.innerHTML = lines.join('\n');
+}
+
+// ── send / dry-run ─────────────────────────────────────────────────────────
+async function doSend(dryRun) {
+  document.getElementById('btn-send').disabled   = true;
+  document.getElementById('btn-dryrun').disabled = true;
+
+  const body = {
+    bootstrap:     document.getElementById('s-bootstrap').value.trim(),
+    topic:         document.getElementById('s-topic').value.trim(),
+    count:         parseInt(document.getElementById('s-count').value) || 1,
+    dockerNetwork: document.getElementById('s-network').value.trim() || undefined,
+    compress:      document.getElementById('s-compress').checked,
+    dryRun,
+    fields:        overrides,
+  };
+
+  appendOutput('meta', `▶ ${dryRun ? 'DRY RUN' : 'SEND'}  ${new Date().toLocaleTimeString()}`);
+
+  const res = await fetch('/api/send', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  });
+
+  const reader = res.body.getReader();
+  const dec    = new TextDecoder();
+  let   buf    = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const parts = buf.split('\n\n');
+    buf = parts.pop();
+    for (const part of parts) {
+      if (!part.startsWith('data:')) continue;
+      const ev = JSON.parse(part.slice(5).trim());
+      if (ev.type === 'args') appendOutput('args', '$ bash run.sh ' + ev.text.replace(/^bash run\.sh\s+/, ''));
+      else if (ev.type === 'out') appendOutput('out',  ev.text);
+      else if (ev.type === 'err') appendOutput('warn', ev.text);
+      else if (ev.type === 'done') {
+        const ok = ev.text === '0';
+        appendOutput(ok ? 'done-ok' : 'done-err', ok ? '✓ done' : `✗ exit ${ev.text}`);
+      }
+    }
+  }
+
+  document.getElementById('btn-send').disabled   = false;
+  document.getElementById('btn-dryrun').disabled = false;
+}
+
+document.getElementById('btn-send').addEventListener('click',   () => doSend(false));
+document.getElementById('btn-dryrun').addEventListener('click', () => doSend(true));
+
+// ── output helpers ─────────────────────────────────────────────────────────
+function appendOutput(type, text) {
+  const div  = document.getElementById('output-body');
+  const cls  = { meta:'out-meta', args:'out-args', out:'out-ok',
+                 warn:'out-warn', 'done-ok':'out-done-ok', 'done-err':'out-done-err' }[type] || 'out-ok';
+  const pre  = document.createElement('pre');
+  pre.className = `out-line ${cls}`;
+  pre.textContent = text.replace(/\n$/, '');
+  div.appendChild(pre);
+  div.scrollTop = div.scrollHeight;
+}
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  document.getElementById('output-body').innerHTML = '';
+});
+
+// ── reset ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-reset').addEventListener('click', () => {
+  overrides = {};
+  renderTable();
+  renderPreview();
+});
+
+// ── utils ──────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

@@ -16,26 +16,26 @@
 #   Kafka advertises kafkaQA:9092 as its listener, so the producer will hang
 #   after the bootstrap handshake.  Always use --docker-network lab in the lab:
 #
-#     ./run.sh --docker-network lab --bootstrap kafkaQA:9092 [OPTIONS]
+#     bash ./run.sh --docker-network lab --bootstrap kafkaQA:9092 [OPTIONS]
 #
 # EXAMPLES
 #   # build JAR and send one message
-#   ./run.sh --docker-network lab --bootstrap kafkaQA:9092
+#   bash ./run.sh --docker-network lab --bootstrap kafkaQA:9092
 #
 #   # send 5 messages with field overrides
-#   ./run.sh --docker-network lab --bootstrap kafkaQA:9092 \
+#   bash ./run.sh --docker-network lab --bootstrap kafkaQA:9092 \
 #            --field accountId=5eb04bc6af93511527471001 \
 #            --field assetId=507f1f77bcf86cd799439022  \
 #            --field vectorId=91 --field packetCount=5000L --count 5
 #
 #   # use a scenario properties file
-#   ./run.sh --docker-network lab --props lab.properties
+#   bash ./run.sh --docker-network lab --props lab.properties
 #
 #   # dry-run (no Kafka needed)
-#   ./run.sh --dry-run
+#   bash ./run.sh --dry-run
 #
 #   # force JAR rebuild after source changes
-#   ./run.sh --rebuild
+#   bash ./run.sh --rebuild
 # ---------------------------------------------------------------------------
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
