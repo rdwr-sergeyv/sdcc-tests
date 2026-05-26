@@ -18,6 +18,7 @@ const elements = {
   requestPreview: document.querySelector('#requestPreview'),
   sessionBadge: document.querySelector('#sessionBadge'),
   statusBadge: document.querySelector('#statusBadge'),
+  requestBox: document.querySelector('#requestBox'),
   responseBox: document.querySelector('#responseBox'),
   lastRequest: document.querySelector('#lastRequest'),
   resultMeta: document.querySelector('#resultMeta'),
@@ -161,6 +162,26 @@ function httpSummary(response, contentType, unexpectedHtml) {
   return `HTTP ${response.status}${statusText}; ok=${response.ok}${typeText}${htmlText}`;
 }
 
+function buildJsonPostRequest(path, body) {
+  return {
+    method: 'POST',
+    path,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body,
+  };
+}
+
+function renderExchange(entry) {
+  elements.requestBox.textContent = pretty(entry.request || {});
+  elements.responseBox.textContent = pretty(entry.response || entry);
+  elements.lastRequest.textContent = `${entry.method} ${entry.path}`;
+  elements.resultMeta.textContent = entry.httpSummary || `HTTP ${entry.status}; ok=${entry.ok}`;
+  setBadge(elements.statusBadge, entry.badge || String(entry.status), entry.ok && !entry.unexpectedHtml ? 'good' : 'bad');
+}
+
 function currentAssetId() {
   const form = document.querySelector('#actionForm');
   const formValue = form ? new FormData(form).get('assetId') : '';
@@ -202,10 +223,7 @@ function renderHistory() {
       <small>${item.time}</small>
     `;
     row.addEventListener('click', () => {
-      elements.responseBox.textContent = pretty(item);
-      elements.lastRequest.textContent = `${item.method} ${item.path}`;
-      elements.resultMeta.textContent = item.httpSummary || `HTTP ${item.status}; ok=${item.ok}`;
-      setBadge(elements.statusBadge, item.badge || String(item.status), item.ok && !item.unexpectedHtml ? 'good' : 'bad');
+      renderExchange(item);
     });
     elements.history.appendChild(row);
   }
@@ -311,6 +329,10 @@ async function loadAssets() {
   if (!assetResponse.ok || !incidentResponse.ok) {
     elements.assetList.innerHTML =
       `<p class="muted">Asset load failed: assets HTTP ${assetResponse.status}, incidents HTTP ${incidentResponse.status}</p>`;
+    elements.requestBox.textContent = pretty({
+      assets: { method: 'GET', path: '/api/assets/?size=500&sort=name', credentials: 'include' },
+      incidents: { method: 'GET', path: '/api/incident/active-and-queue', credentials: 'include' },
+    });
     elements.responseBox.textContent = pretty({
       assets: { status: assetResponse.status, body: assetBody },
       incidents: { status: incidentResponse.status, body: incidentBody },
@@ -393,6 +415,7 @@ async function loginWithFields() {
   });
   const body = parseBody(await response.text());
   localStorage.setItem('dpIsolateUsername', username);
+  elements.requestBox.textContent = pretty(buildJsonPostRequest('/api/auth/', { u: username, p: password ? '(provided)' : '' }));
   elements.responseBox.textContent = pretty({ status: response.status, body });
   if (response.ok) {
     setBadge(elements.sessionBadge, `Logged in as ${body.username || username}`, 'good');
@@ -419,6 +442,7 @@ async function sendIsolation(action) {
   const trigger = document.querySelector('input[name="trigger"]:checked').value;
   if (elements.clientValidations.checked && !/^[a-fA-F0-9]{24}$/.test(assetId)) {
     setBadge(elements.statusBadge, 'Invalid asset ID', 'bad');
+    elements.requestBox.textContent = pretty(buildJsonPostRequest(currentActionPath(action), action === 'enable' ? { trigger } : {}));
     elements.responseBox.textContent = pretty({ error: 'Asset ID must be a 24-character ObjectId.' });
     elements.resultMeta.textContent = `Will send: ${currentActionPath(action)}`;
     return;
@@ -427,21 +451,23 @@ async function sendIsolation(action) {
   localStorage.setItem('dpIsolateAssetId', assetId);
   const path = currentActionPath(action).replace('{asset_id}', '');
   const payload = action === 'enable' ? { trigger } : {};
+  const request = buildJsonPostRequest(path, payload);
   elements.lastRequest.textContent = `POST ${path}`;
+  elements.requestBox.textContent = pretty(request);
   setBadge(elements.statusBadge, 'Sending...', 'neutral');
 
   const response = await fetch(path, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    method: request.method,
+    credentials: request.credentials,
+    headers: request.headers,
+    body: JSON.stringify(request.body),
   });
   const contentType = response.headers.get('content-type') || '';
   const body = parseBody(await response.text());
   const proxyDebug = await loadProxyDebug().catch(() => null);
   const unexpectedHtml = isHtmlResponse(body, contentType);
   const summary = httpSummary(response, contentType, unexpectedHtml);
-  const result = {
+  const responseDetails = {
     time: new Date().toLocaleTimeString(),
     method: 'POST',
     path,
@@ -457,8 +483,13 @@ async function sendIsolation(action) {
     proxyDebug,
     body,
   };
+  const result = {
+    ...responseDetails,
+    request,
+    response: responseDetails,
+  };
 
-  elements.responseBox.textContent = pretty(result);
+  elements.responseBox.textContent = pretty(responseDetails);
   elements.resultMeta.textContent = summary;
   setBadge(
     elements.statusBadge,
