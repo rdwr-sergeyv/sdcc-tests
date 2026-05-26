@@ -394,7 +394,7 @@
       </div>
       <div class="field-group">
         <label>Topic</label>
-        <input type="text" id="s-topic" value="sdcc-mitigation-vision-defensepro-securityevents" style="width:340px">
+        <input type="text" id="s-topic" value="sdcc-mitigation-vision-defensepro-securityevents" list="topic-datalist" style="width:340px">
       </div>
       <div class="field-group">
         <label>Count</label>
@@ -448,6 +448,9 @@
   </div>
 </div><!-- /page-producer -->
 
+<!-- shared topic autocomplete list (populated by JS) -->
+<datalist id="topic-datalist"></datalist>
+
 <!-- ═══════════════════════════════════════════════════
      CONSUMER PAGE
 ═══════════════════════════════════════════════════ -->
@@ -461,7 +464,7 @@
     </div>
     <div class="cons-field">
       <label>Topic</label>
-      <input type="text" id="c-topic" value="sdcc-mitigation-vision-defensepro-securityevents" style="width:340px">
+      <input type="text" id="c-topic" value="sdcc-mitigation-vision-defensepro-securityevents" list="topic-datalist" style="width:340px">
     </div>
     <div class="cons-field">
       <label>Group ID</label>
@@ -491,6 +494,38 @@
 </div><!-- /page-consumer -->
 
 <script>
+// ══════════════════════════════════════════════════════════════════════════════
+// TOPIC AUTOCOMPLETE
+// ══════════════════════════════════════════════════════════════════════════════
+let topicsBootstrap = null;   // bootstrap value topics were last fetched for
+
+async function fetchTopics(bootstrap) {
+  if (!bootstrap) return;
+  if (bootstrap === topicsBootstrap) return;   // already up to date
+  try {
+    const res = await fetch('/api/topics?' + new URLSearchParams({ bootstrap }));
+    if (!res.ok) return;
+    const topics = await res.json();
+    topicsBootstrap = bootstrap;
+    const dl = document.getElementById('topic-datalist');
+    dl.innerHTML = topics.map(t => `<option value="${escHtml(t)}">`).join('');
+  } catch (_) {}
+}
+
+// fetch on focus of either topic input, and on bootstrap blur
+['s-topic', 'c-topic'].forEach(id => {
+  document.getElementById(id).addEventListener('focus', () => {
+    const bs = (id.startsWith('s-') ? document.getElementById('s-bootstrap')
+                                    : document.getElementById('c-bootstrap')).value.trim();
+    fetchTopics(bs);
+  });
+});
+['s-bootstrap', 'c-bootstrap'].forEach(id => {
+  document.getElementById(id).addEventListener('change', e => {
+    topicsBootstrap = null;   // invalidate cache so next focus re-fetches
+  });
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 // TAB SWITCHING
 // ══════════════════════════════════════════════════════════════════════════════
