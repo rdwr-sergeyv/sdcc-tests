@@ -153,7 +153,7 @@ public class SecurityEventProducer
         {
             KValue sample = buildSecurityEvent(System.currentTimeMillis(), accountId, assetId);
             System.out.println("Default payload fields (override with --field key=value):");
-            sample.properties.forEach((k, v) ->
+            sample.getProperties().forEach((k, v) ->
                 System.out.printf("  %-30s %s  (%s)%n", k, v, v.getClass().getSimpleName()));
             return;
         }

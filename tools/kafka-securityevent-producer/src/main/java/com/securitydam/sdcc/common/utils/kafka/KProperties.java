@@ -21,4 +21,10 @@ public abstract class KProperties<KPROPERTIES extends KProperties<?>> extends KO
         properties.put(key, value);
         return (KPROPERTIES) this;
     }
+
+    /** Exposes the properties map for inspection (e.g. --list-fields). */
+    public Map<String, Object> getProperties()
+    {
+        return properties;
+    }
 }
