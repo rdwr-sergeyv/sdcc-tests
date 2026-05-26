@@ -403,6 +403,15 @@ pre {
   line-height: 1.45;
 }
 
+.exchange {
+  display: grid;
+  gap: 8px;
+}
+
+#requestBox {
+  min-height: 120px;
+}
+
 .history {
   display: grid;
   gap: 8px;
