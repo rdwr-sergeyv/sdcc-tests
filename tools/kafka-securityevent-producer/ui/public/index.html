@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Security Event Producer</title>
+<title>Kafka Security Event Tool</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -13,23 +13,67 @@
     background: #0f1117;
     color: #e2e8f0;
     height: 100vh;
-    display: grid;
-    grid-template-rows: auto 1fr;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
   }
 
-  /* ── top bar ── */
-  header {
+  /* ── app header ── */
+  #app-header {
     background: #1a1d27;
     border-bottom: 1px solid #2d3148;
-    padding: 10px 16px;
+    padding: 0 16px;
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex-shrink: 0;
+  }
+  #app-header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #a5b4fc;
+    white-space: nowrap;
+    padding: 10px 16px 10px 0;
+    margin-right: 8px;
+    border-right: 1px solid #2d3148;
+    align-self: center;
+  }
+
+  /* ── tab navigation ── */
+  #tab-nav { display: flex; align-items: stretch; gap: 2px; padding: 6px 0; }
+  .tab-btn {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 5px 18px;
+    transition: color .15s, background .15s;
+  }
+  .tab-btn:hover { color: #94a3b8; background: #252840; }
+  .tab-btn.active { background: #252840; color: #a5b4fc; border-color: #3d4268; }
+
+  /* ── pages ── */
+  .page { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+  .page.active { display: flex; }
+
+  /* ════════════════════════════════════════════════════
+     PRODUCER PAGE
+  ════════════════════════════════════════════════════ */
+
+  /* ── producer top bar ── */
+  #prod-bar {
+    background: #161925;
+    border-bottom: 1px solid #2d3148;
+    padding: 8px 16px;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     flex-wrap: wrap;
+    flex-shrink: 0;
   }
-  header h1 { font-size: 15px; font-weight: 600; color: #a5b4fc; white-space: nowrap; }
-
   .settings { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; flex: 1; }
 
   .field-group { display: flex; align-items: center; gap: 6px; }
@@ -64,11 +108,12 @@
   .btn-dryrun   { background: #0f172a; color: #94a3b8; border: 1px solid #2d3148; }
   .btn-reset    { background: #0f172a; color: #94a3b8; border: 1px solid #2d3148; }
 
-  /* ── main layout: fields | preview + output ── */
-  main {
+  /* ── producer main layout ── */
+  #prod-main {
     display: grid;
     grid-template-columns: 1fr 1fr;
     overflow: hidden;
+    flex: 1;
   }
 
   /* ── fields panel ── */
@@ -90,6 +135,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
   }
   .panel-header input[type=search] {
     margin-left: auto;
@@ -193,83 +239,275 @@
   .out-err  { color: #f87171; }
   .out-done-ok  { color: #4ade80; font-weight: 600; }
   .out-done-err { color: #f87171; font-weight: 600; }
+
+  /* ════════════════════════════════════════════════════
+     CONSUMER PAGE
+  ════════════════════════════════════════════════════ */
+
+  #cons-bar {
+    background: #161925;
+    border-bottom: 1px solid #2d3148;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .cons-field { display: flex; align-items: center; gap: 6px; }
+  .cons-field label { font-size: 12px; color: #94a3b8; white-space: nowrap; }
+  .cons-field input[type=text] {
+    background: #0f1117;
+    border: 1px solid #2d3148;
+    border-radius: 5px;
+    color: #e2e8f0;
+    padding: 4px 8px;
+    font-size: 13px;
+    width: 180px;
+  }
+  .cons-field input:focus { outline: none; border-color: #10b981; }
+
+  .btn-start { background: #10b981; color: #fff; }
+  .btn-stop  { background: #ef4444; color: #fff; }
+
+  #cons-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  #cons-toolbar {
+    padding: 6px 14px;
+    background: #1a1d27;
+    border-bottom: 1px solid #2d3148;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: #64748b;
+    flex-shrink: 0;
+  }
+  #cons-count { color: #10b981; font-weight: 600; }
+  #cons-status-text { flex: 1; }
+  #cons-autoscroll { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  #cons-autoscroll label { cursor: pointer; color: #64748b; }
+
+  #cons-messages {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* ── message card ── */
+  .msg-card {
+    background: #1a1d27;
+    border: 1px solid #2d3148;
+    border-radius: 6px;
+    overflow: hidden;
+    font-family: monospace;
+    font-size: 12px;
+  }
+  .msg-card.msg-status {
+    background: #161925;
+    border-color: #252840;
+    color: #64748b;
+    padding: 5px 12px;
+  }
+  .msg-card.msg-error {
+    border-color: #7f1d1d;
+    background: #1f0f0f;
+  }
+  .msg-header {
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #2d3148;
+    cursor: pointer;
+    user-select: none;
+  }
+  .msg-header:hover { background: #1f2236; }
+  .msg-seq {
+    color: #475569;
+    min-width: 36px;
+    font-size: 11px;
+  }
+  .msg-part  { color: #60a5fa; }
+  .msg-offset { color: #94a3b8; }
+  .msg-ts    { color: #475569; font-size: 11px; flex: 1; }
+  .msg-size  { color: #64748b; font-size: 11px; white-space: nowrap; }
+  .msg-toggle { color: #475569; font-size: 11px; margin-left: 4px; transition: transform .15s; }
+  .msg-toggle.open { transform: rotate(90deg); }
+
+  .msg-body {
+    display: none;
+    padding: 8px 12px;
+    border-top: 1px solid #1e2235;
+  }
+  .msg-body.open { display: block; }
+
+  .hex-section { margin-bottom: 8px; }
+  .hex-label { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+  .hex-dump {
+    color: #4ade80;
+    line-height: 1.8;
+    word-break: break-all;
+    white-space: pre-wrap;
+  }
+  .hex-dump .hex-byte { display: inline-block; width: 22px; }
+  .hex-dump .hex-ascii { color: #fb923c; margin-left: 8px; }
+  .hex-preview {
+    color: #4ade80;
+    word-break: break-all;
+  }
+  .hex-preview .hex-rest { color: #475569; }
+
+  .msg-error-text { color: #f87171; padding: 6px 12px; }
 </style>
 </head>
 <body>
 
-<!-- ── top bar ── -->
-<header>
-  <h1>⚡ Security Event Producer</h1>
+<!-- ── app header with tabs ── -->
+<div id="app-header">
+  <h1>⚡ Kafka Tool</h1>
+  <div id="tab-nav">
+    <button class="tab-btn active" data-tab="producer">Producer</button>
+    <button class="tab-btn"        data-tab="consumer">Consumer</button>
+  </div>
+</div>
 
-  <div class="settings">
-    <div class="field-group">
+<!-- ═══════════════════════════════════════════════════
+     PRODUCER PAGE
+═══════════════════════════════════════════════════ -->
+<div id="page-producer" class="page active">
+
+  <!-- settings bar -->
+  <div id="prod-bar">
+    <div class="settings">
+      <div class="field-group">
+        <label>Bootstrap</label>
+        <input type="text" id="s-bootstrap" value="kafkaQA:9092" placeholder="host:port">
+      </div>
+      <div class="field-group">
+        <label>Topic</label>
+        <input type="text" id="s-topic" value="sdcc-mitigation-vision-defensepro-securityevents" style="width:340px">
+      </div>
+      <div class="field-group">
+        <label>Count</label>
+        <input type="number" id="s-count" value="1" min="1" style="width:60px">
+      </div>
+      <div class="field-group">
+        <label>Docker network</label>
+        <input type="text" id="s-network" value="" placeholder="lab (optional)" style="width:120px">
+      </div>
+      <label class="checkbox-group">
+        <input type="checkbox" id="s-compress"> <label for="s-compress">Compress (XZ)</label>
+      </label>
+    </div>
+    <button class="btn btn-dryrun" id="btn-dryrun">Dry Run</button>
+    <button class="btn btn-send"   id="btn-send">Send</button>
+    <button class="btn btn-reset"  id="btn-reset">Reset fields</button>
+  </div>
+
+  <!-- fields table | preview + output -->
+  <div id="prod-main">
+
+    <div id="fields-panel">
+      <div class="panel-header">
+        Payload fields
+        <span id="modified-count" style="color:#6366f1"></span>
+        <input type="search" id="field-search" placeholder="Filter…">
+      </div>
+      <div id="fields-table-wrap">
+        <table>
+          <thead><tr>
+            <th>Field</th><th>Type</th><th>Value</th>
+          </tr></thead>
+          <tbody id="fields-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="right-panel">
+
+      <div id="preview-panel">
+        <div class="panel-header">Payload preview <span id="preview-note" style="color:#64748b;font-weight:400;text-transform:none;letter-spacing:0;margin-left:4px;font-size:11px">(what will be sent)</span></div>
+        <div id="preview-body"><pre id="preview-pre"></pre></div>
+      </div>
+
+      <div id="output-panel">
+        <div class="panel-header">Output <button id="btn-clear" style="margin-left:auto;background:none;border:none;color:#475569;cursor:pointer;font-size:11px">clear</button></div>
+        <div id="output-body"></div>
+      </div>
+
+    </div>
+  </div>
+</div><!-- /page-producer -->
+
+<!-- ═══════════════════════════════════════════════════
+     CONSUMER PAGE
+═══════════════════════════════════════════════════ -->
+<div id="page-consumer" class="page">
+
+  <!-- settings bar -->
+  <div id="cons-bar">
+    <div class="cons-field">
       <label>Bootstrap</label>
-      <input type="text" id="s-bootstrap" value="kafkaQA:9092" placeholder="host:port">
+      <input type="text" id="c-bootstrap" value="kafkaQA:9092" placeholder="host:port">
     </div>
-    <div class="field-group">
+    <div class="cons-field">
       <label>Topic</label>
-      <input type="text" id="s-topic" value="sdcc-mitigation-vision-defensepro-securityevents" style="width:340px">
+      <input type="text" id="c-topic" value="sdcc-mitigation-vision-defensepro-securityevents" style="width:340px">
     </div>
-    <div class="field-group">
-      <label>Count</label>
-      <input type="number" id="s-count" value="1" min="1" style="width:60px">
+    <div class="cons-field">
+      <label>Group ID</label>
+      <input type="text" id="c-groupid" placeholder="auto" style="width:160px">
     </div>
-    <div class="field-group">
-      <label>Docker network</label>
-      <input type="text" id="s-network" value="" placeholder="lab (optional)" style="width:120px">
-    </div>
-    <label class="checkbox-group">
-      <input type="checkbox" id="s-compress"> <label for="s-compress">Compress (XZ)</label>
+    <label class="checkbox-group" style="margin-left:4px">
+      <input type="checkbox" id="c-from-beginning">
+      <label for="c-from-beginning" style="color:#94a3b8">From beginning</label>
     </label>
+    <button class="btn btn-start" id="btn-start" style="margin-left:auto">▶ Start</button>
+    <button class="btn btn-stop"  id="btn-stop"  disabled>■ Stop</button>
+    <button class="btn btn-reset" id="btn-clear-cons" style="margin-left:4px">Clear</button>
   </div>
 
-  <button class="btn btn-dryrun" id="btn-dryrun">Dry Run</button>
-  <button class="btn btn-send"   id="btn-send">Send</button>
-  <button class="btn btn-reset"  id="btn-reset">Reset fields</button>
-</header>
-
-<!-- ── main ── -->
-<main>
-
-  <!-- left: fields table -->
-  <div id="fields-panel">
-    <div class="panel-header">
-      Payload fields
-      <span id="modified-count" style="color:#6366f1"></span>
-      <input type="search" id="field-search" placeholder="Filter…">
+  <div id="cons-main">
+    <div id="cons-toolbar">
+      <span id="cons-status-text">Idle</span>
+      <span>Messages: <span id="cons-count">0</span></span>
+      <label id="cons-autoscroll">
+        <input type="checkbox" id="c-autoscroll" checked>
+        <label for="c-autoscroll">Auto-scroll</label>
+      </label>
     </div>
-    <div id="fields-table-wrap">
-      <table>
-        <thead><tr>
-          <th>Field</th><th>Type</th><th>Value</th>
-        </tr></thead>
-        <tbody id="fields-tbody"></tbody>
-      </table>
-    </div>
+    <div id="cons-messages"></div>
   </div>
 
-  <!-- right: preview + output -->
-  <div id="right-panel">
-
-    <div id="preview-panel">
-      <div class="panel-header">Payload preview <span id="preview-note" style="color:#64748b;font-weight:400;text-transform:none;letter-spacing:0;margin-left:4px;font-size:11px">(what will be sent)</span></div>
-      <div id="preview-body"><pre id="preview-pre"></pre></div>
-    </div>
-
-    <div id="output-panel">
-      <div class="panel-header">Output <button id="btn-clear" style="margin-left:auto;background:none;border:none;color:#475569;cursor:pointer;font-size:11px">clear</button></div>
-      <div id="output-body"></div>
-    </div>
-
-  </div>
-</main>
+</div><!-- /page-consumer -->
 
 <script>
-// ── state ──────────────────────────────────────────────────────────────────
-let defaults = [];   // [{ name, value, type }]  loaded from server
-let overrides = {};  // { fieldName: editedValue }
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════════════════════════════════
+document.getElementById('tab-nav').addEventListener('click', e => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  const tab = btn.dataset.tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === `page-${tab}`));
+});
 
-// ── boot ───────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// PRODUCER
+// ══════════════════════════════════════════════════════════════════════════════
+let defaults = [];
+let overrides = {};
+
 async function loadFields() {
   const res = await fetch('/api/fields');
   defaults = await res.json();
@@ -279,7 +517,6 @@ async function loadFields() {
 }
 loadFields();
 
-// ── table ──────────────────────────────────────────────────────────────────
 function renderTable() {
   const q = document.getElementById('field-search').value.toLowerCase();
   const tbody = document.getElementById('fields-tbody');
@@ -292,10 +529,8 @@ function renderTable() {
   for (const f of rows) {
     const modified = overrides[f.name] !== undefined;
     const val = effectiveValue(f);
-
     const tr = document.createElement('tr');
     if (modified) tr.classList.add('modified');
-
     tr.innerHTML = `
       <td class="field-name">${f.name}</td>
       <td class="field-type"><span class="type-badge type-${f.type}">${f.type}</span></td>
@@ -331,16 +566,15 @@ function updateModifiedCount() {
 
 document.getElementById('field-search').addEventListener('input', renderTable);
 
-// ── preview ────────────────────────────────────────────────────────────────
 function renderPreview() {
   const pre = document.getElementById('preview-pre');
   const lines = [];
   lines.push('{');
   for (const f of defaults) {
-    const val  = effectiveValue(f);
-    const mod  = overrides[f.name] !== undefined;
-    const key  = `<span class="pv-key">"${f.name}"</span>`;
-    let   vSpan;
+    const val = effectiveValue(f);
+    const mod = overrides[f.name] !== undefined;
+    const key = `<span class="pv-key">"${f.name}"</span>`;
+    let vSpan;
     if (f.type === 'String') {
       vSpan = `<span class="pv-str ${mod?'pv-mod':''}">"${escHtml(val)}"</span>`;
     } else if (f.type === 'Boolean') {
@@ -355,7 +589,6 @@ function renderPreview() {
   pre.innerHTML = lines.join('\n');
 }
 
-// ── send / dry-run ─────────────────────────────────────────────────────────
 async function doSend(dryRun) {
   document.getElementById('btn-send').disabled   = true;
   document.getElementById('btn-dryrun').disabled = true;
@@ -408,12 +641,11 @@ async function doSend(dryRun) {
 document.getElementById('btn-send').addEventListener('click',   () => doSend(false));
 document.getElementById('btn-dryrun').addEventListener('click', () => doSend(true));
 
-// ── output helpers ─────────────────────────────────────────────────────────
 function appendOutput(type, text) {
-  const div  = document.getElementById('output-body');
-  const cls  = { meta:'out-meta', args:'out-args', out:'out-ok',
-                 warn:'out-warn', 'done-ok':'out-done-ok', 'done-err':'out-done-err' }[type] || 'out-ok';
-  const pre  = document.createElement('pre');
+  const div = document.getElementById('output-body');
+  const cls = { meta:'out-meta', args:'out-args', out:'out-ok',
+                warn:'out-warn', 'done-ok':'out-done-ok', 'done-err':'out-done-err' }[type] || 'out-ok';
+  const pre = document.createElement('pre');
   pre.className = `out-line ${cls}`;
   pre.textContent = text.replace(/\n$/, '');
   div.appendChild(pre);
@@ -424,14 +656,199 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   document.getElementById('output-body').innerHTML = '';
 });
 
-// ── reset ──────────────────────────────────────────────────────────────────
 document.getElementById('btn-reset').addEventListener('click', () => {
   overrides = {};
   renderTable();
   renderPreview();
 });
 
-// ── utils ──────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// CONSUMER
+// ══════════════════════════════════════════════════════════════════════════════
+let consES     = null;   // EventSource
+let consCount  = 0;
+let consSeq    = 0;
+
+function consSetStatus(text, color) {
+  const el = document.getElementById('cons-status-text');
+  el.textContent = text;
+  el.style.color = color || '#64748b';
+}
+
+function startConsuming() {
+  const bootstrap     = document.getElementById('c-bootstrap').value.trim();
+  const topic         = document.getElementById('c-topic').value.trim();
+  const groupId       = document.getElementById('c-groupid').value.trim();
+  const fromBeginning = document.getElementById('c-from-beginning').checked;
+
+  if (!topic) { consSetStatus('Topic is required', '#f87171'); return; }
+
+  stopConsuming();
+
+  const params = new URLSearchParams({ bootstrap, topic, fromBeginning });
+  if (groupId) params.set('groupId', groupId);
+
+  consES = new EventSource('/api/consume?' + params.toString());
+  consCount = 0;
+  consSeq   = 0;
+  document.getElementById('cons-count').textContent = '0';
+
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-stop').disabled  = false;
+  consSetStatus('Connecting…', '#facc15');
+
+  consES.onmessage = e => {
+    const ev = JSON.parse(e.data);
+    if (ev.type === 'status') {
+      consSetStatus(ev.text, '#94a3b8');
+    } else if (ev.type === 'message') {
+      consSeq++;
+      consCount++;
+      document.getElementById('cons-count').textContent = consCount;
+      consSetStatus(`Receiving (last: partition ${ev.partition}, offset ${ev.offset})`, '#10b981');
+      appendMessage(ev, consSeq);
+    } else if (ev.type === 'error') {
+      consSetStatus('Error: ' + ev.text, '#f87171');
+      appendErrorCard(ev.text);
+    }
+  };
+
+  consES.onerror = () => {
+    if (consES.readyState === EventSource.CLOSED) {
+      consSetStatus('Disconnected', '#64748b');
+      document.getElementById('btn-start').disabled = false;
+      document.getElementById('btn-stop').disabled  = true;
+      consES = null;
+    }
+  };
+}
+
+function stopConsuming() {
+  if (consES) { consES.close(); consES = null; }
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-stop').disabled  = true;
+  consSetStatus('Stopped', '#64748b');
+}
+
+document.getElementById('btn-start').addEventListener('click', startConsuming);
+document.getElementById('btn-stop').addEventListener('click',  stopConsuming);
+document.getElementById('btn-clear-cons').addEventListener('click', () => {
+  document.getElementById('cons-messages').innerHTML = '';
+  consCount = 0;
+  consSeq   = 0;
+  document.getElementById('cons-count').textContent = '0';
+});
+
+// ── message card rendering ──────────────────────────────────────────────────
+
+function appendMessage(ev, seq) {
+  const container = document.getElementById('cons-messages');
+  const ts = ev.timestamp ? new Date(parseInt(ev.timestamp)).toISOString().replace('T',' ').replace('Z','') : '—';
+
+  const card = document.createElement('div');
+  card.className = 'msg-card';
+
+  // ── header (always visible, clickable to expand) ──
+  const header = document.createElement('div');
+  header.className = 'msg-header';
+  header.innerHTML = `
+    <span class="msg-seq">#${seq}</span>
+    <span class="msg-part">P${ev.partition}</span>
+    <span class="msg-offset">@${ev.offset}</span>
+    <span class="msg-ts">${ts}</span>
+    <span class="msg-size">${ev.valueSize} B</span>
+    <span class="msg-toggle">▶</span>
+  `;
+
+  // ── hex preview inline in header (first 32 bytes / 64 hex chars) ──
+  if (ev.valueHex) {
+    const preview = ev.valueHex.slice(0, 64);
+    const rest    = ev.valueHex.length > 64;
+    const previewEl = document.createElement('span');
+    previewEl.className = 'hex-preview';
+    previewEl.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;margin-left:8px;';
+    previewEl.innerHTML = `<span style="color:#4ade80">${formatHexInline(preview)}</span>${rest ? '<span class="hex-rest">…</span>' : ''}`;
+    header.insertBefore(previewEl, header.querySelector('.msg-size'));
+  }
+
+  // ── body (expandable) ──
+  const body = document.createElement('div');
+  body.className = 'msg-body';
+
+  if (ev.keyHex) {
+    body.innerHTML += `
+      <div class="hex-section">
+        <div class="hex-label">Key (${ev.keyHex.length / 2} bytes)</div>
+        <div class="hex-dump">${formatHexDump(ev.keyHex)}</div>
+      </div>`;
+  }
+  if (ev.valueHex) {
+    body.innerHTML += `
+      <div class="hex-section">
+        <div class="hex-label">Value (${ev.valueSize} bytes)</div>
+        <div class="hex-dump">${formatHexDump(ev.valueHex)}</div>
+      </div>`;
+  }
+
+  // toggle expand/collapse
+  header.addEventListener('click', () => {
+    const open = body.classList.toggle('open');
+    header.querySelector('.msg-toggle').classList.toggle('open', open);
+  });
+
+  card.appendChild(header);
+  card.appendChild(body);
+  container.appendChild(card);
+
+  // auto-scroll
+  if (document.getElementById('c-autoscroll').checked) {
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // cap at 500 messages to avoid memory bloat
+  while (container.children.length > 500) container.removeChild(container.firstChild);
+}
+
+function appendErrorCard(text) {
+  const container = document.getElementById('cons-messages');
+  const card = document.createElement('div');
+  card.className = 'msg-card msg-error';
+  card.innerHTML = `<div class="msg-error-text">✗ ${escHtml(text)}</div>`;
+  container.appendChild(card);
+  if (document.getElementById('c-autoscroll').checked) container.scrollTop = container.scrollHeight;
+}
+
+// ── hex formatting helpers ──────────────────────────────────────────────────
+
+// inline preview: just spaced pairs e.g. "01 02 03 …"
+function formatHexInline(hex) {
+  return hex.replace(/../g, b => b + ' ').trim();
+}
+
+// full dump: 16 bytes per line, offset | hex | ascii
+function formatHexDump(hex) {
+  const bytes = [];
+  for (let i = 0; i < hex.length; i += 2) bytes.push(parseInt(hex.slice(i, i+2), 16));
+
+  const lines = [];
+  for (let i = 0; i < bytes.length; i += 16) {
+    const chunk = bytes.slice(i, i + 16);
+    const offset = i.toString(16).padStart(4, '0');
+    const hexPart = chunk.map(b => b.toString(16).padStart(2,'0')).join(' ')
+                  + (chunk.length < 16 ? '   '.repeat(16 - chunk.length) : '');
+    const asciiPart = chunk.map(b => (b >= 0x20 && b < 0x7f) ? String.fromCharCode(b) : '.').join('');
+    lines.push(
+      `<span style="color:#475569">${offset}</span>  ` +
+      `<span style="color:#4ade80">${escHtml(hexPart)}</span>  ` +
+      `<span style="color:#fb923c">${escHtml(asciiPart)}</span>`
+    );
+  }
+  return lines.join('\n');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════════════════════
 function escHtml(s) {
   return String(s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
