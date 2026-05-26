@@ -90,6 +90,27 @@ app.post('/api/send', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/topics  — returns sorted list of topic names from the broker
+// ---------------------------------------------------------------------------
+app.get('/api/topics', async (req, res) => {
+    const { bootstrap = 'kafkaQA:9092' } = req.query;
+    const kafka = new Kafka({
+        clientId: 'kafka-ui-admin',
+        brokers:  [bootstrap],
+        logLevel: 1,
+    });
+    const admin = kafka.admin();
+    try {
+        await admin.connect();
+        const topics = await admin.listTopics();
+        await admin.disconnect();
+        res.json(topics.filter(t => !t.startsWith('__')).sort());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/consume  — SSE stream; connects a kafkajs consumer and streams
 //                     each received message as a JSON event.
 //
