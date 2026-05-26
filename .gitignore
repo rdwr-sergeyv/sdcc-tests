@@ -15,6 +15,14 @@ env/
 dist/
 build/
 
+# Gradle
+.gradle/
+**/.gradle/
+**/.gradletasknamecache
+**/build/
+!**/src/**/build/
+**/out/
+
 # Test/type/lint caches and coverage
 .pytest_cache/
 .mypy_cache/
