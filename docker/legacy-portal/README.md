@@ -7,7 +7,7 @@ nginx/uwsgi/systemd installation.
 From the workspace root:
 
 ```bash
-docker compose -f sdcc-tests/docker/legacy-portal/docker-compose.yml up --build
+docker compose -f sdcc-tests/docker/legacy-portal/docker-compose.yml --profile minimal up --build
 ```
 
 Kafka comes from the lab compose environment:
@@ -50,22 +50,32 @@ and runs the portal:
 python manage.py runserver 0.0.0.0:8000
 ```
 
-It also starts two separate backend containers for the Docker-required workers
-used by the isolation queue flow:
+Backend services are controlled by Compose profiles:
 
 ```text
-incident-manager -> sdcc-incident-manager.py, backend role: master
-cmd-executor     -> sdcc-cmd-executor.py, backend role: monitor
+minimal -> mongo, portal, incident-manager, cmd-executor
+full    -> mongo, portal, and all ported backend services
+none    -> portal only; use this when pointing at native MongoDB
 ```
+
+All backend services use one hybrid backend, default IP `10.20.4.20`.
+`sdcc-init` is not ported because it is not relevant for Docker.
 
 Backend-involved helper modes default to `SDCC_TASK_TYPE=build`. In this mode
 `cmd-executor` builds/generated commands and marks tasks complete without
 executing commands on devices. Override with `SDCC_TASK_TYPE=provisioning` only
 for a lab run that should touch devices.
 
-Production runs these through systemd on separate backend roles. The Docker
-harness mirrors that split with one process per container and relies on Compose
-restart policy instead of systemd.
+Production runs these through systemd. The Docker harness keeps one process per
+container, associates them with one hybrid backend for simplicity, clears the
+same service lock files before startup, and relies on Compose restart policy
+instead of systemd.
+
+To run the full backend service set:
+
+```bash
+docker compose -f sdcc-tests/docker/legacy-portal/docker-compose.yml --profile full up --build
+```
 
 Activate SDCC licensed modules in both backend worker containers:
 
@@ -98,7 +108,7 @@ By default the portal connects to the compose MongoDB service, which bind-mounts
 the local lab data directory from `LEGACY_PORTAL_MONGO_DB_PATH`.
 
 ```bash
-docker compose -f sdcc-tests/docker/legacy-portal/docker-compose.yml --profile internal-mongo up --build
+docker compose -f sdcc-tests/docker/legacy-portal/docker-compose.yml --profile minimal up --build
 ```
 
 Stop any native `mongod` process before using this mode; MongoDB data files must
@@ -119,10 +129,11 @@ SDCC_REPO_PATH=../../../sdcc
 SDCC_PORTAL_REPO_PATH=../../../sdcc-portal
 LEGACY_PORTAL_PORT=8000
 LEGACY_PORTAL_MONGO_IMAGE=mongo:8.2
-LEGACY_PORTAL_MONGO_PORT=27017
+LEGACY_PORTAL_MONGO_PORT=27018
 LEGACY_PORTAL_MONGO_DB_PATH=../../.tmp/legacy-portal-mongo-db
 SDCC_MONGO_HOST=mongo
 SDCC_MONGO_PORT=27017
 SDCC_MONGO_DB=sdcc
 SDCC_PORTAL_PUBLIC_URL=http://localhost:8000
+DP_ISOLATE_COMPOSE_PROFILE=minimal
 ```
