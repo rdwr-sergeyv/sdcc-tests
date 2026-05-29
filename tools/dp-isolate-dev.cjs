@@ -88,6 +88,12 @@ function help() {
   make task-snapshot           Same as dp-isolate:task-snapshot
   make policy-capacity-min     Same as dp-isolate:policy-capacity-min
   make policy-capacity-restore Same as dp-isolate:policy-capacity-restore
+  make kafka-producer          Send one synthetic security event to Kafka
+  make kafka-producer-ui       Start the Kafka security-event producer UI
+  make kafka-producer-ui-up    Start the Kafka producer UI in the background
+  make kafka-producer-ui-down  Stop the background Kafka producer UI
+  make kafka-producer-ui-status Show Kafka producer UI background status
+  make kafka-producer-ui-logs  Show recent Kafka producer UI logs
   make status                  Show portal/client status
   make portal-up               Start legacy portal Docker Compose stack in build-only task mode
   make portal-build-only-up    Compatibility alias for portal-up
@@ -114,6 +120,10 @@ Environment:
   SDCC_LICENSE_MODULES         Comma-separated module names, default all
   SDCC_LICENSE_SERVICES        Comma-separated backend services, default incident-manager,cmd-executor
   SDCC_TASK_TYPE                Task execution type, default build; set to provisioning to execute device commands
+  KAFKA_BOOTSTRAP              Kafka bootstrap server, default kafkaQA:9092
+  KAFKA_DOCKER_NETWORK         Docker network for producer container, default lab
+  KAFKA_PRODUCER_UI_PORT       Kafka producer UI port, default 3000
+  KAFKA_ARGS                   Extra args for tools/kafka-securityevent-producer/run.sh
 `);
 }
 
