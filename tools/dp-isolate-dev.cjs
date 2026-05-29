@@ -16,6 +16,53 @@ const portalPort = Number(process.env.LEGACY_PORTAL_PORT || readEnv('LEGACY_PORT
 const clientPort = Number(process.env.DP_ISOLATE_CLIENT_PORT || readEnv('DP_ISOLATE_CLIENT_PORT') || 5173);
 const portalUrl = process.env.SDCC_PORTAL_PUBLIC_URL || readEnv('SDCC_PORTAL_PUBLIC_URL') || `http://localhost:${portalPort}`;
 const clientUrl = `http://localhost:${clientPort}`;
+const backendServices = [
+  'alert-manager-aggregator',
+  'ar-config-poller',
+  'asset-advertisement-aggregator',
+  'asset-aggregator',
+  'asset-health-aggregator',
+  'attack-aggregator',
+  'attacks-poller',
+  'bgp-advertise-poller',
+  'bgp-over-gre-aggregator',
+  'bgp-peer-poller',
+  'bgp-routing-poller',
+  'cmd-executor',
+  'daily-jobs-aggregator',
+  'diversion-period-checker-aggregator',
+  'domain-resolve-aggregator',
+  'domain-resolve-poller',
+  'dp-fail-over-aggregator',
+  'dp-fail-over-poller',
+  'dp-policy-inconsistency-aggregator',
+  'dp-policy-manager',
+  'file-reporter-aggregator',
+  'flow-poller',
+  'health-poller',
+  'incident-manager',
+  'netflow-manager',
+  'pdf-incident-reporter-aggregator',
+  'resource-utilization-aggregator',
+  'sc-aggregator',
+  'sc-poller',
+  'site-aggregator',
+  'site-poller',
+  'static-route-aggregator',
+  'static-routes-poller',
+  'status-aggregator',
+  'ts-aggregator',
+  'vision-api-poller',
+  'vision-connectivity-aggregator',
+  'vision-control-poller',
+  'vision-cpe-aggregator',
+  'vision-device-policy-aggregator',
+  'vision-device-policy-poller',
+  'vision-policies-aggregator',
+  'vision-policies-poller',
+  'waf-route-poller',
+  'waf-ssl-protection-aggregator',
+];
 
 const commands = {
   help,
@@ -115,7 +162,7 @@ Environment:
   LEGACY_PORTAL_PORT           Portal port, default ${portalPort}
   DP_ISOLATE_CLIENT_PORT       Client port, default ${clientPort}
   PORTAL_ORIGIN                Vite proxy target, default ${portalUrl}
-  DP_ISOLATE_COMPOSE_PROFILE   Compose profile, default internal-mongo
+  DP_ISOLATE_COMPOSE_PROFILE   Compose profile, default minimal; set full for all backend services or none for native Mongo
   SDCC_LICENSE_IFN             Container interface for license generation, default eth0
   SDCC_LICENSE_MODULES         Comma-separated module names, default all
   SDCC_LICENSE_SERVICES        Comma-separated backend services, default incident-manager,cmd-executor
@@ -162,13 +209,9 @@ async function status() {
 
 async function portalUp() {
   ensureTaskTypeDefault();
-  const profile = Object.hasOwn(process.env, 'DP_ISOLATE_COMPOSE_PROFILE')
-    ? process.env.DP_ISOLATE_COMPOSE_PROFILE
-    : 'internal-mongo';
-  const args = profile && profile !== 'none'
-    ? ['--profile', profile, 'up', '--build', '-d']
-    : ['up', '--build', '-d'];
-  console.log(`Starting legacy portal Docker Compose stack (${profile && profile !== 'none' ? `profile: ${profile}` : 'no profile'})...`);
+  const profileArgs = composeProfileArgs(['minimal']);
+  const args = [...profileArgs, 'up', '--build', '-d'];
+  console.log(`Starting legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`);
   console.log('Checking Docker CLI...');
   ensureCommand('docker', ['--version'], 'Docker CLI is required.');
   await runDockerComposeLive(args);
@@ -180,14 +223,10 @@ async function portalBuildOnlyUp() {
 }
 
 async function portalUiUp() {
-  const profile = Object.hasOwn(process.env, 'DP_ISOLATE_COMPOSE_PROFILE')
-    ? process.env.DP_ISOLATE_COMPOSE_PROFILE
-    : 'internal-mongo';
-  const services = profile && profile !== 'none' ? ['mongo', 'portal'] : ['portal'];
-  const args = profile && profile !== 'none'
-    ? ['--profile', profile, 'up', '--build', '-d', ...services]
-    : ['up', '--build', '-d', ...services];
-  console.log(`Starting legacy portal UI-only stack (${profile && profile !== 'none' ? `profile: ${profile}` : 'no profile'})...`);
+  const profileArgs = composeProfileArgs(['minimal']);
+  const services = profileArgs.length ? ['mongo', 'portal'] : ['portal'];
+  const args = [...profileArgs, 'up', '--build', '-d', ...services];
+  console.log(`Starting legacy portal UI-only stack (${describeComposeProfiles(profileArgs)})...`);
   console.log('Checking Docker CLI...');
   ensureCommand('docker', ['--version'], 'Docker CLI is required.');
   await runDockerComposeLive(args);
@@ -197,17 +236,13 @@ async function portalUiUp() {
 
 async function stopWorkersIfPresent() {
   console.log('Ensuring backend worker services are stopped...');
-  await runDockerComposeLive(['stop', 'incident-manager', 'cmd-executor']);
+  await runDockerComposeLive(['stop', ...backendServices]);
 }
 
 async function portalRestart() {
   ensureTaskTypeDefault();
-  const profile = Object.hasOwn(process.env, 'DP_ISOLATE_COMPOSE_PROFILE')
-    ? process.env.DP_ISOLATE_COMPOSE_PROFILE
-    : 'internal-mongo';
-  const args = profile && profile !== 'none'
-    ? ['--profile', profile, 'up', '-d']
-    : ['up', '-d'];
+  const profileArgs = composeProfileArgs(['minimal']);
+  const args = [...profileArgs, 'up', '-d'];
   console.log('Restarting legacy portal Docker Compose stack without rebuilding...');
   console.log('Checking Docker CLI...');
   ensureCommand('docker', ['--version'], 'Docker CLI is required.');
@@ -259,13 +294,9 @@ async function portalLicenseBackends() {
 
 async function portalRebuild() {
   ensureTaskTypeDefault();
-  const profile = Object.hasOwn(process.env, 'DP_ISOLATE_COMPOSE_PROFILE')
-    ? process.env.DP_ISOLATE_COMPOSE_PROFILE
-    : 'internal-mongo';
-  const args = profile && profile !== 'none'
-    ? ['--profile', profile, 'up', '--build', '--force-recreate', '-d']
-    : ['up', '--build', '--force-recreate', '-d'];
-  console.log(`Rebuilding legacy portal Docker Compose stack (${profile && profile !== 'none' ? `profile: ${profile}` : 'no profile'})...`);
+  const profileArgs = composeProfileArgs(['minimal']);
+  const args = [...profileArgs, 'up', '--build', '--force-recreate', '-d'];
+  console.log(`Rebuilding legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`);
   console.log('Checking Docker CLI...');
   ensureCommand('docker', ['--version'], 'Docker CLI is required.');
   await runDockerComposeLive(args);
@@ -405,6 +436,28 @@ function parseListEnv(name, defaults) {
   if (!raw) return defaults;
   const values = raw.split(',').map((item) => item.trim()).filter(Boolean);
   return values.length ? values : defaults;
+}
+
+function composeProfiles(defaults) {
+  const raw = Object.hasOwn(process.env, 'DP_ISOLATE_COMPOSE_PROFILE')
+    ? process.env.DP_ISOLATE_COMPOSE_PROFILE
+    : readEnv('DP_ISOLATE_COMPOSE_PROFILE');
+  if (!raw) return defaults;
+  const profiles = raw.split(',').map((item) => item.trim()).filter(Boolean);
+  if (profiles.length === 1 && profiles[0] === 'none') return [];
+  return profiles.length ? profiles : defaults;
+}
+
+function composeProfileArgs(defaults) {
+  return composeProfiles(defaults).flatMap((profile) => ['--profile', profile]);
+}
+
+function describeComposeProfiles(profileArgs) {
+  const profiles = [];
+  for (let index = 0; index < profileArgs.length; index += 2) {
+    profiles.push(profileArgs[index + 1]);
+  }
+  return profiles.length ? `profiles: ${profiles.join(', ')}` : 'no profile';
 }
 
 function shellQuote(value) {

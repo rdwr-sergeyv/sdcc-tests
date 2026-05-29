@@ -67,14 +67,18 @@ Expected success/no-op response:
 
 ## Docker Harness Shape
 
-The replicated local stack should run four services:
+The replicated local stack runs the portal plus the legacy backend services:
 
 ```text
-mongo             # local MongoDB restored from lab/fixture data
-portal            # Django legacy portal, exposes http://localhost:8000
-incident-manager  # runs sdcc-incident-manager.py
-cmd-executor      # runs sdcc-cmd-executor.py
+mongo            # local MongoDB restored from lab/fixture data
+portal           # Django legacy portal, exposes http://localhost:8000
+minimal profile  # mongo, portal, incident-manager, cmd-executor
+full profile     # mongo, portal, and all ported backend services
 ```
+
+All backend services are associated with one hybrid backend in Docker. The
+launcher defaults to `DP_ISOLATE_COMPOSE_PROFILE=minimal`; set it to `full` to
+run the complete ported service set.
 
 The split matters:
 
@@ -118,7 +122,7 @@ SDCC_REPO_PATH=../sdcc
 SDCC_PORTAL_REPO_PATH=../sdcc-portal
 LEGACY_PORTAL_PORT=8000
 LEGACY_PORTAL_MONGO_IMAGE=mongo:8.2
-LEGACY_PORTAL_MONGO_PORT=27017
+LEGACY_PORTAL_MONGO_PORT=27018
 LEGACY_PORTAL_MONGO_DB_PATH=../../.tmp/legacy-portal-mongo-db
 SDCC_MONGO_HOST=mongo
 SDCC_MONGO_PORT=27017
