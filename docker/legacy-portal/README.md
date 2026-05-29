@@ -10,6 +10,25 @@ From the workspace root:
 docker compose -f sdcc-tests/docker/legacy-portal/docker-compose.yml up --build
 ```
 
+Kafka comes from the lab compose environment:
+
+```bash
+docker compose -f sdcc-tests/docker/docker-compose-lab.yaml up -d kafka
+```
+
+The producer is a separate overlay and is not tied to a specific Kafka service.
+Point it at any Kafka bootstrap server with `KAFKA_BOOTSTRAP_SERVERS`.
+For the lab compose Kafka, use the advertised listener name:
+
+```bash
+KAFKA_BOOTSTRAP_SERVERS=kafka:9092 docker compose \
+  -f sdcc-tests/docker/legacy-portal/docker-compose.kafka.yml \
+  --profile kafka-producer up --build kafka-producer
+```
+
+The producer overlay attaches to the external `lab` Docker network created by
+`sdcc-tests/docker/docker-compose-lab.yaml`.
+
 From `sdcc-tests`, the DP Isolate helper can start this stack and the test
 client together:
 

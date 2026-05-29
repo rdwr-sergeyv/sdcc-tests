@@ -1,0 +1,14 @@
+services:
+  kafka-producer:
+    build:
+      context: ../../tools/kafka-securityevent-producer
+    profiles:
+      - kafka-producer
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS
+    networks:
+      - lab
+
+networks:
+  lab:
+    external: true
