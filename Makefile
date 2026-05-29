@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help run-dp-isolate run-dp-isolate-build-only run-dp-isolate-ui-only demo-short demo-playwright demo-short-playwright demo-short-resume test-dp-isolate test-dp-isolate-api test-dp-isolate-api-build-only test-dp-isolate-api-short test-dp-isolate-smoke dp-isolate dp-isolate\:start dp-isolate\:build-only dp-isolate\:ui-only dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status dp-isolate\:restore-ready dp-isolate\:patch-pending-task-deps dp-isolate\:task-snapshot dp-isolate\:policy-capacity-min dp-isolate\:policy-capacity-restore restore-ready patch-pending-task-deps task-snapshot policy-capacity-min policy-capacity-restore status dp-isolate-status portal-up portal-build-only-up portal-ui-up portal-restart portal-rebuild portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
+.PHONY: help run-dp-isolate run-dp-isolate-build-only run-dp-isolate-ui-only demo-short demo-playwright demo-short-playwright demo-short-resume test-dp-isolate test-dp-isolate-api test-dp-isolate-api-build-only test-dp-isolate-api-short test-dp-isolate-smoke dp-isolate dp-isolate\:start dp-isolate\:build-only dp-isolate\:ui-only dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status dp-isolate\:restore-ready dp-isolate\:patch-pending-task-deps dp-isolate\:task-snapshot dp-isolate\:device-password dp-isolate\:vision-password dp-isolate\:policy-capacity-min dp-isolate\:policy-capacity-restore restore-ready patch-pending-task-deps task-snapshot device-password vision-password policy-capacity-min policy-capacity-restore status dp-isolate-status portal-up portal-build-only-up portal-ui-up portal-restart portal-rebuild portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
 
 help:
 	@node tools/dp-isolate-dev.cjs help
@@ -89,6 +89,16 @@ dp-isolate\:patch-pending-task-deps:
 dp-isolate\:task-snapshot:
 	@node tools/dp-isolate-task-snapshot.cjs $(ASSET_ID)
 
+dp-isolate\:device-password:
+	@if [ -n "$(VISION)" ]; then \
+		node tools/decrypt-sc-device-password.cjs "$(SC)" --vision "$(VISION)" $(ARGS); \
+	else \
+		node tools/decrypt-sc-device-password.cjs "$(SC)" "$(DP)" $(ARGS); \
+	fi
+
+dp-isolate\:vision-password:
+	@node tools/decrypt-sc-device-password.cjs "$(SC)" --vision "$(VISION)" $(ARGS)
+
 dp-isolate\:policy-capacity-min:
 	@node tools/dp-isolate-policy-capacity.cjs min
 
@@ -100,6 +110,10 @@ restore-ready: dp-isolate\:restore-ready
 patch-pending-task-deps: dp-isolate\:patch-pending-task-deps
 
 task-snapshot: dp-isolate\:task-snapshot
+
+device-password: dp-isolate\:device-password
+
+vision-password: dp-isolate\:vision-password
 
 policy-capacity-min: dp-isolate\:policy-capacity-min
 
