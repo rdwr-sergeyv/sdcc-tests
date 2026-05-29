@@ -1,0 +1,498 @@
+version: '3.8'
+
+networks:
+  rmoff_kafka:
+    name: rmoff_kafka
+  lab:
+    name: lab
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeperQA
+    user: "0:0"
+    networks:
+        # - rmoff_kafka
+        - lab
+    ports:
+      - "2182:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - ./zoo/data:/var/lib/zookeeper/data
+      - ./zoo/log:/var/lib/zookeeper/log
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafkaQA
+    hostname: kafkaQA
+    networks:
+        # - rmoff_kafka
+        - lab
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_PROCESS_ROLES: broker, controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@localhost:9093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      CLUSTER_ID: Lab20
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_CONFLUENT_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - ./broker/data:/var/lib/kafka/data
+    user: root
+
+  redis:
+    container_name: redis
+    image: redis:latest
+    network_mode: host
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis-cache-data:/data
+
+  db:
+    image: mongo:5.0.10
+    container_name: blockerDB
+    restart: always
+    network_mode: host
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./data:/data/db
+
+  messenger:
+    depends_on:
+      - zookeeper
+      - kafka
+    container_name: messengerQA
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev/services/messenger:latest
+    networks:
+      - lab
+    ports:
+       - "8450:8450"
+    environment:
+      SPRING_PROFILES_ACTIVE: lab0
+      KAFKA_ADDRESS: kafkaQA
+      KAFKA_PORT: 9092
+
+  attack:
+    container_name: attackQA
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/feature/cddos-2276/services/attack@sha256:6a82de54203851a05295003b8d0e524ce9112cd8000fb92235667757a3e5b1c3
+    networks:
+      - lab
+    ports:
+      - "8470:8470"
+      - "5011:5011"
+    environment:
+      SPRING_PROFILES_ACTIVE: lab20
+      PORTAL_ADDRESS: 10.20.4.20
+      MONGODB_ADDRESS: 10.20.4.20
+      MONGODB_PORT: 27017
+      SYSTEM_ADDRESS: 10.20.4.20
+      SYSTEM_PORT: 8451
+      CDDOS_ADDRESS: 10.20.4.20
+      CDDOS_PORT: 8000
+      MESSENGER_ADDRESS: 10.20.4.20
+      MESSENGER_PORT: 8450
+      KAFKA_ADDRESS: kafkaQA
+      KAFKA_PORT: 9092
+      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,address=*:5001,server=y,suspend=n'
+
+  barrier:
+    container_name: barrierQA
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev/services/barrier:latest
+    networks:
+      - lab
+    ports:
+       - "8449:8449"
+    environment:
+      SPRING_PROFILES_ACTIVE: lab20
+
+  mitigation:
+    container_name: mitigationQA
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/pe-driver-8x-10x-lab/services/mitigation@sha256:f48f0f5e85bbd882ef3122ad4adee5a31e161b1aff26198cce4c0477f3eb7808
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/driver-10.13.0.0-asn/services/mitigation@sha256:48ec33bd7353965320a6722d71208998800b9d9ea26aff34fb1a27cdfe6af231
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/iyada-import-policies-logs/services/mitigation@sha256:42bb7a77295efd58248badcfffbea9bdd7e2b507c90d129ecf62ed1640905879
+    networks:
+      - lab
+    ports:
+      - 8448:8448
+      - 5010:5010
+    environment:
+      SPRING_PROFILES_ACTIVE: lab0
+      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,address=*:5010,server=y,suspend=n'
+
+  portal:
+    container_name: portalQA
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev-venkatesh-lab/services/portal@sha256:2e33cdfa72cff8c8f84e680164cea01c1b74baf8d25b10ae518b9f8b82effd27
+    networks:
+      - lab
+    ports:
+       - 8447:8447
+    environment:
+      SPRING_PROFILES_ACTIVE: lab20
+      MONGODB_ADDRESS: 10.20.4.145
+    # MONGODB_ADDRESS: 10.20.4.110
+      MONGODB_PORT: 27017
+
+
+  policyeditor:
+    container_name: policyeditorQA
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/driver-10.13.0.0-asn/services/policyeditor@sha256:373c97c8e21066a61153c5e32584451669821e0d09607555e302012dfac46ad0
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev/services/policyeditor@sha256:29c300b2bcd31cee12dbb77f783ac6cdf970719edb4d983141205f7cb3a211d5
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/pe-driver-8x-10x-lab/services/policyeditor@sha256:1811b524e3ef5f9ffa302a57125df7f0b8b2cc08308d7c220ed0aaea138e38a7
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/pe-driver-8x-10x-lab/services/policyeditor@sha256:eb0c3e9a9465e2e818b970c2d09afddf29a82d334cffeb69c6a90e870ffa1795
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/driver-10.13.0.0-dns-check/services/policyeditor@sha256:bc9a7b5b2240799121cbf7a467bdbb004f981869f449525511818e8b08acb6f9
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/pe-driver-8.36.1.0/services/policyeditor@sha256:0d2cf81924c3226d2159c0d9c4203b311ec8503542b8739fad051128ed774006
+    image:  us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/cddos-2476_validation_for_traffic_filter/services/policyeditor@sha256:1fd49fa703343b8a345cbb83543f48cbdc30ef8be957489b1f544a0df3e9b923
+   
+    networks:
+      - lab
+    ports:
+      - "8818:8818"
+      - "5002:5002"
+    environment:
+      SPRING_PROFILES_ACTIVE: lab250
+      MONGODB_ADDRESS: 10.20.4.20
+      MONGODB_PORT: 27017
+      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,address=*:5002,server=y,suspend=n'
+
+  blocker:
+    depends_on:
+      - portal
+      - mitigation
+      - barrier
+      - messenger
+      - db
+      - router
+    container_name: blockerQA
+      # image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev-venkatesh-lab/services/blocker@sha256:11e6452b241f1efb74dbeacbc827f90db55c0c646ffc9663b1f4c9fb4faae99d
+      # image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev-override-global-templates-for-lab/services/blocker@sha256:71e1624794fc6ba90f30aacffd7629581eba47ebfd35af9952acb47060984542
+      #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev-venkatesh-lab/services/blocker@sha256:54fab7929acb08c9369c84493cfc8a0f2b8ef3285c0c93dc7114a79f67f8579b
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/pe-driver-8x-10x-lab/services/blocker@sha256:e50d84468ee99d23bd1a701381836a3605af8281e5fa6c581ecf455bb9a22c24
+      #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/2tier-fix-for-new-accounts/services/blocker@sha256:caa38097a263967bab3117f24cd4f7d26ae6b12093669199a42221b344ca0d09
+      #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/pe-driver-8x-10x-lab/services/blocker@sha256:36490839297decd40e657c6e3e816dfded140480f1400eaf840e1fd19aba0be7
+      #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/iyada-blocker-oom/services/blocker@sha256:92dbdaaebf1252a6bb273590a7fd357efccdc49a4a1e5ee9fbac5be069a22a6d
+      #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev-override-global-templates-for-lab/services/blocker@sha256:ddb29ec9e0eefd6330048ef7bff6e3f0e806b338f1174e1b209168acdf889568
+   # image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev/services/blocker:latest
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/driver-10.13.0.0-asn/services/blocker@sha256:faf437991e2bd7f11d4e1de3abfa68a85d3a6943ef42b8d1692ee86deaba2195
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/driver-10.13.0.0-asn/services/blocker@sha256:99567d6a60f8f12ab8f34c491cd8cc5cd4e228ec85fb69e7759adce7aa4442d6
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/cddos-2476_validation_for_traffic_filter/services/blocker@sha256:668345f27c56ea5ce8171cf91843a322f4d7091c620897d9c088090cfc842b71
+    #image:  us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/pe-driver-8.36.1.0_comment_8_36_driver/services/blocker@sha256:6200dce10f9fc2779f5ebb307e9a67ab1089bd3787bfbdee6ef480d80fed7710
+    networks:
+      - lab
+    ports:
+      - "10011:8444"
+      - "5005:5005"
+    environment:
+      SPRING_PROFILES_ACTIVE: lab20
+      PORTAL_ADDRESS: 10.20.4.20
+      MONGODB_ADDRESS: 10.20.4.20
+      MONGODB_PORT: 27017
+      POLICY_EDITOR_ADDRESS: 10.20.4.20
+      POLICY_EDITOR_PORT: 8818
+      SYSTEM_ADDRESS: 10.20.4.20
+      SYSTEM_PORT: 8451
+      BARRIER_ADDRESS: 10.20.4.20
+      MITIGATION_ADDRESS: 10.20.4.20
+      ROUTER_ADDRESS: 10.20.4.20
+      SDCC_BLOCKER_DEV_LAB_MODE: true
+      SDCC_BLOCKER_SYSTEM_CONNECTION_DISABLED: true
+      SDCC_BLOCKER_MESSENGER_CONNECTION_DISABLED: true
+      MESSENGER_ADDRESS: 10.20.4.20
+      MESSENGER_PORT: 8450
+      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=n'
+
+  system:
+    depends_on:
+      - portal
+      - messenger
+      - db
+    container_name: systemQA
+      #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev/services/system@sha256:092914c722577387dac04695633cab863b38a26696106df5b30bc2c7092d7485
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/feature/cddos-2276/services/system@sha256:6ef5fbdb586cb91a1248fb36cd746d89c7560318837956b9e315af555139185f
+      #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev/services/system:latest
+    networks:
+      - lab
+    ports:
+      - "8451:8451"
+      - "5001:5001"
+    #network_mode: host
+    environment:
+      SPRING_PROFILES_ACTIVE: lab20
+      PORTAL_ADDRESS: 10.20.4.20
+      MONGODB_ADDRESS: 10.20.4.20
+      MONGODB_PORT: 27017
+      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,address=*:5001,server=y,suspend=n'
+
+  nginx-proxy:
+    image: nginx
+#   container-name: nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs
+    networks:
+      - lab
+    ports:
+      - "443:443"
+    depends_on:
+     - ddos-api
+     - ddos-ui
+
+  entities:
+    container_name: entities
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/csms-consoles-services/dev/entities:latest
+    networks:
+      - lab
+    ports:
+      - "3003:3003"
+    environment:
+      IS_SSL:
+      DB_PROD: mongodb://10.20.4.145:27017
+      DB_PROD_STATISTICS: mongodb://10.20.4.145:27017
+      DB_PROD_CONSOLES: consoles
+      DB_PROD_COLL: sdcc
+      AUDIENCE: https://admin-console.securitydam.io,https://management-console.securitydam.io,https://radwarecloud.com,https://management-consoles-dev.securitydam.io
+
+  settings:
+    container_name: settings
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/csms-consoles-services/dev/settings:latest
+    networks:
+      - lab
+    ports:
+      - "3005:3005"
+    environment:
+      IS_SSL:
+      DB_PROD: mongodb://10.20.4.20:27017
+      DB_PROD_COLL: consoles
+
+  host-ui:
+    container_name: host-ui
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/csms-consoles/dev/host@sha256:6ea97c842bf1124ead0cef90c13b928397943b4fbc6538ee3b2172bd313a1073
+    networks:
+      - lab
+    ports:
+      - "8080:80"
+
+  host-api:
+    container_name: host-api
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/csms-consoles/dev/host-api@sha256:1e0b586d1c2ca6d2ae3e4f63eece49eda2c2cdeac732cead7c668f0ece9aa1df
+    networks:
+      - lab
+    ports:
+      - "2000:2000"
+      - "2001:2001"
+    depends_on:
+      - system
+      - settings
+      - entities
+    environment:
+      PORT: 2000
+      PORT_WS: 2001
+      JWKS_URI: https://securitydam.us.auth0.com/.well-known/jwks.json
+      AUDIENCE: https://management-console.securitydam.io
+      ISSUER: https://securitydam.us.auth0.com/
+      CORS_ORIGIN: http://localhost:3000,https://management-console.securitydam.io,https://management-qa.securitydam.io,https://ng-ddos.radwarecloud.com
+      APP_ID: 62efc4155811094ab3014a43
+      SETTINGS_SERVICE: http://settings:3005
+      ENTITIES_SERVICE_URI: http://entities:3003
+      POLICY_EDITOR_API_URI: http://policy-editor-api:3004
+      DDOS_API_URI: http://ddos-api:3001
+      DDOS_API_WS: http://ddos-api:3002
+      WAF_API_URI: http://localhost:4001
+      BOT_API_URI: http://localhost:5001
+      SYSTEM_SERVICE: https://systemQA:8451
+      AUTH_SERVICE: https://authQA:8500
+      AGENTIC_AI_API_URI: https://portal.agentic.radwarecto.com
+      API_SECURITY_API_URI: https://34.149.131.185
+
+
+  policy-editor-ui:
+    container_name: policy-editor-ui
+#    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/csms-consoles/context-tag-removed/policy-editor@sha256:3612f9a729b4a710372ba61a92fa7b746b6a29f231e23a00cfdc40bf1ee81197
+    #image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/csms-consoles/traffic-filter-fix/policy-editor@sha256:cfa3a1e68d9a3720ce0269e4a2720abac6f4b418284f833b128d77c9d3937f3b
+    #image: gcr.io/securitydam-sdcc/csms-consoles/ux-review-10_13/policy-editor@sha256:f1396c3fedc3a8731d02b97419e567b291f76f11c5761f00e2df55dc077a37c5
+    #image: gcr.io/securitydam-sdcc/csms-consoles/pe-driver-8.36.1.0/policy-editor@sha256:5b167b7398bde239a63e2870920be709682b955e3771f6cd34173feb3184070d
+    image: gcr.io/securitydam-sdcc/csms-consoles/pe-driver-8.36-tf-validations/policy-editor@sha256:0bbe41bf02f81c1ecc2dc1a4f196bb0be757ed7723e4adac7458a3b45fa669be
+    networks:
+      - lab
+    ports:
+      - "4204:80"
+
+  policy-editor-api:
+    container_name: policy-editor-api
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/csms-consoles/dev/policy-editor-api@sha256:f7dc6a4cd1cd26a8ec292bd0c0e5ea9e96fc2d69d09b6e1e5c1cfb70e0b20c4b
+    #
+    networks:
+      - lab
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      CORS_ORIGIN: http://localhost:3000,https://management-console.securitydam.io,https://management-qa.securitydam.io,https://ng-ddos.radwarecloud.com,https://10.20.4.20
+      APP_ID: 67587bff7c2dd01e920eb696
+      SETTINGS_SERVICE: http://settings:3005
+      ENTITIES_SERVICE_URI: http://entities:3004
+      BLOCKER_SERVICE: https://blocker:8444
+      AUDIENCE: https://admin-console.securitydam.io,https://management-console.securitydam.io,https://radwarecloud.com,https://management-consoles-dev.securitydam.io
+      ISSUER: https://securitydam-dev.us.auth0.com
+      AUTH0_MGMT_DOMAIN: securitydam-dev.us.auth0.com
+      AUTH0_MGMT_CLIENTID: GQlSpzOEem6xD9yVEDyrGV9jF1TTP95P
+      AUTH0_MGMT_CLIENTSECRET: ujhwSG8cbzzjGqCxAEbowOYF25aK-u2tE4pGtAFsfmAjF4tiG6qtIeEWF3_fRlVn
+      JWKS_URI: https://securitydam-dev.us.auth0.com/.well-known/jwks.json
+
+  ddos-ui:
+    container_name: ddos-ui
+#    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/csms-consoles/dev-ddos-charter-granular-ip-address/ddos@sha256:5a89894cdc7509398fc93471a44833dccf218c29973cf8eefa4ad099f3457ee3
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/csms-consoles/dev/ddos:latest
+    networks:
+      - lab
+    ports:
+      - "4201:80"
+    environment:
+      NX_REACT_APP_AUTH0_AUDIENCE_URL: https://admin-console.securitydam.io,https://management-console.securitydam.io,https://radwarecloud.com,https://management-consoles-dev.securitydam.io
+      NX_REACT_APP_AUTH0_DOMAIN: securitydam-dev.us.auth0.com
+      NX_REACT_APP_AUTH0_CLIENT_ID: GQlSpzOEem6xD9yVEDyrGV9jF1TTP95P
+      AUTH0_ORG_ID:
+
+  ddos-api:
+    container_name: ddos-api
+#    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/csms-consoles/dev-ddos-charter-granular-ip-address/ddos-api@sha256:f78d24f4a471875dd0ae0ba4615465af5fafea1061e51f17b6e14e55457eb54d
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/csms-consoles/dev/ddos-api:latest
+    networks:
+      - lab
+    ports:
+      - "3001:3001"
+      - "3002:3002"
+    depends_on:
+      - blocker
+      - entities
+      - settings
+    environment:
+      PORT: 3001
+      PORT_WS: 3002
+      CORS_ORIGIN: http://localhost:3000,https://management-console.securitydam.io,https://management-qa.securitydam.io,https://ng-ddos.radwarecloud.com,https://10.20.4.200
+      JWKS_URI: https://securitydam-dev.us.auth0.com/.well-known/jwks.json
+      REALM_APP_ID: admin-console-iaqgm
+      REALM_API_KEY: gSGvoMsAgwXC8xfzK7toJ7asqMTmqXR9GeqUxbgwcEcp6wEDX1AOJ1f2IWsiMuTp
+      DOWNLOAD_DIRECTORY: downloads
+      API_GATEWAY_USERNAME: managementConsole
+      API_GATEWAY_PASSWORD: Qwerty123%
+      APP_ID: 60f554e3429bff5b5052175c
+      ACCOUNT_ID_MAXMIND: 639582
+      LICENSE_KEY_MAXMIND: 42CkRLbg6WewHsHT
+      SETTINGS_SERVICE: http://settings:3005
+      ENTITIES_SERVICE_URI: http://entities:3003
+      API_GATEWAY: http://localhost:8447
+      MAXMIND_SERVICE: https://maxmind-service.securitydam.io
+      SYSTEM_SERVICE: https://systemQA:8451
+      TRAFFIC_SERVICE: https://34.89.241.22
+      REPORTS_SERVICE: https://34.107.128.189
+      EVENTS_SERVICE: https://34.117.138.145
+      BLOCK_SERVICE: https://blocker:8444
+      BLOCK_STATISTICS_SERVICE: https://34.159.31.190
+      INFRA_SERVICE: https://34.111.241.100
+      ATTACK_SERVICE: https://34.117.138.145
+      AUDIENCE: https://admin-console.securitydam.io,https://management-console.securitydam.io,https://radwarecloud.com,https://management-consoles-dev.securitydam.io
+      ISSUER: https://securitydam-dev.us.auth0.com
+      AUTH0_MGMT_DOMAIN: securitydam-dev.us.auth0.com
+      AUTH0_MGMT_CLIENTID: GQlSpzOEem6xD9yVEDyrGV9jF1TTP95P
+      AUTH0_MGMT_CLIENTSECRET: ujhwSG8cbzzjGqCxAEbowOYF25aK-u2tE4pGtAFsfmAjF4tiG6qtIeEWF3_fRlVn
+      POLICY_EDITOR_API_URI: http://localhost:3004
+      GEN_AI_SERVICE: 10.20.4.20:8819
+
+  router:
+    container_name: routerQA
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev/services/router:latest
+    networks:
+      - lab
+    ports:
+      - "8452:8452"
+    environment:
+      SPRING_PROFILES_ACTIVE: lab0
+
+  maxmind:
+    container_name: maxmindQA
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev/services/maxmind:latest
+    networks:
+      - lab
+    ports:
+       - "8460:8460"
+       - "5460:5460"
+    environment:
+      SPRING_PROFILES_ACTIVE: lab20
+      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,address=*:5460,server=y,suspend=n'
+
+  auth:
+    container_name: authQA
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev/services/auth:latest
+    depends_on:
+      - system
+      - maxmind
+    networks:
+      - lab
+    ports:
+       - "8500:8500"
+       - "5500:5500"
+    environment:
+      SPRING_PROFILES_ACTIVE: lab20
+      SYSTEM_ADDRESS: 10.20.4.20
+      SYSTEM_PORT: 8451
+      MAXMIND_ADDRESS: 10.20.4.20
+      MAXMIND_PORT: 8460
+      MONGODB_ADDRESS: 10.20.4.20
+      MESSENGER_ADDRESS: 10.20.4.20
+      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,address=*:5500,server=y,suspend=n'
+
+
+  genai:
+    container_name: genaiQA
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev/services/genai:latest
+    networks:
+      - lab
+    ports:
+      - "8819:8819"
+      - "5003:5003"
+    environment:
+      SPRING_PROFILES_ACTIVE: lab20
+      SYSTEM_ADDRESS: 10.20.4.20
+      SYSTEM_PORT: 8451
+      PORTAL_ADDRESS: 10.20.4.20
+      MONGODB_ADDRESS: 10.20.4.20
+      MONGODB_PORT: 27017
+      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,address=*:5003,server=y,suspend=n'
+
+  healthchecker:
+    container_name: healthcheckerQA
+    image: us-docker.pkg.dev/securitydam-sdcc/gcr.io/sdcc-services/dev/services/healthchecker:latest
+    depends_on:
+      - zookeeper
+      - kafka
+    networks:
+      - lab
+    ports:
+       - "8422:8422"
+    environment:
+      SPRING_PROFILES_ACTIVE: lab20
+volumes:
+  zookeeper_data:
+    driver: local
+  kafka_data:
+    driver: local
+  ssl_data:
