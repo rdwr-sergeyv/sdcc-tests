@@ -142,8 +142,8 @@ function help() {
   make kafka-producer-ui-status Show Kafka producer UI background status
   make kafka-producer-ui-logs  Show recent Kafka producer UI logs
   make status                  Show portal/client status
-  make portal-up               Start legacy portal Docker Compose stack in build-only task mode
-  make portal-build-only-up    Compatibility alias for portal-up
+  make portal-up               Start legacy portal Docker Compose stack (execute + minimal profiles)
+  make portal-build-only-up    Start legacy portal in build-only task mode (build-only + minimal profiles)
   make portal-ui-up            Start only Mongo and portal; keep worker services stopped
   make portal-restart          Restart existing legacy portal Docker Compose stack without rebuilding
   make portal-rebuild          Rebuild/recreate legacy portal Docker Compose stack
@@ -162,11 +162,11 @@ Environment:
   LEGACY_PORTAL_PORT           Portal port, default ${portalPort}
   DP_ISOLATE_CLIENT_PORT       Client port, default ${clientPort}
   PORTAL_ORIGIN                Vite proxy target, default ${portalUrl}
-  DP_ISOLATE_COMPOSE_PROFILE   Compose profile, default minimal; set full for all backend services or none for native Mongo
+  DP_ISOLATE_COMPOSE_PROFILE   Comma-separated Compose profiles; combine one task type (execute, build-only) and
+                               one service scope (minimal, full); default execute,minimal; use none for no profiles
   SDCC_LICENSE_IFN             Container interface for license generation, default eth0
   SDCC_LICENSE_MODULES         Comma-separated module names, default all
   SDCC_LICENSE_SERVICES        Comma-separated backend services, default incident-manager,cmd-executor
-  SDCC_TASK_TYPE                Task execution type, default build; set to provisioning to execute device commands
   KAFKA_BOOTSTRAP              Kafka bootstrap server, default kafkaQA:9092
   KAFKA_DOCKER_NETWORK         Docker network for producer container, default lab
   KAFKA_PRODUCER_UI_PORT       Kafka producer UI port, default 3000
@@ -208,8 +208,7 @@ async function status() {
 }
 
 async function portalUp() {
-  ensureTaskTypeDefault();
-  const profileArgs = composeProfileArgs(['minimal']);
+  const profileArgs = composeProfileArgs(['execute', 'minimal']);
   const args = [...profileArgs, 'up', '--build', '-d'];
   console.log(`Starting legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`);
   console.log('Checking Docker CLI...');
@@ -219,12 +218,20 @@ async function portalUp() {
 }
 
 async function portalBuildOnlyUp() {
-  await portalUp();
+  const profileArgs = composeProfileArgs(['build-only', 'minimal']);
+  const args = [...profileArgs, 'up', '--build', '-d'];
+  console.log(`Starting legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`);
+  console.log('Checking Docker CLI...');
+  ensureCommand('docker', ['--version'], 'Docker CLI is required.');
+  await runDockerComposeLive(args);
+  await waitForUrl(portalUrl, 120000, 'legacy portal');
 }
 
 async function portalUiUp() {
-  const profileArgs = composeProfileArgs(['minimal']);
-  const services = profileArgs.length ? ['mongo', 'portal'] : ['portal'];
+  const profileArgs = composeProfileArgs(['execute', 'minimal']);
+  const profiles = composeProfiles(['execute', 'minimal']);
+  const portalService = profiles.includes('build-only') ? 'portal-build' : 'portal';
+  const services = profileArgs.length ? ['mongo', portalService] : [portalService];
   const args = [...profileArgs, 'up', '--build', '-d', ...services];
   console.log(`Starting legacy portal UI-only stack (${describeComposeProfiles(profileArgs)})...`);
   console.log('Checking Docker CLI...');
@@ -240,8 +247,7 @@ async function stopWorkersIfPresent() {
 }
 
 async function portalRestart() {
-  ensureTaskTypeDefault();
-  const profileArgs = composeProfileArgs(['minimal']);
+  const profileArgs = composeProfileArgs(['execute', 'minimal']);
   const args = [...profileArgs, 'up', '-d'];
   console.log('Restarting legacy portal Docker Compose stack without rebuilding...');
   console.log('Checking Docker CLI...');
@@ -293,8 +299,7 @@ async function portalLicenseBackends() {
 }
 
 async function portalRebuild() {
-  ensureTaskTypeDefault();
-  const profileArgs = composeProfileArgs(['minimal']);
+  const profileArgs = composeProfileArgs(['execute', 'minimal']);
   const args = [...profileArgs, 'up', '--build', '--force-recreate', '-d'];
   console.log(`Rebuilding legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`);
   console.log('Checking Docker CLI...');
