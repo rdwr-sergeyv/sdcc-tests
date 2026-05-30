@@ -50,19 +50,41 @@ untouched:
 
 - `DPZones`
 - `Accounts`
-<<<<<<< Updated upstream
-=======
-- `Users`
-- `Roles`
+- `AccountSiteExtensions`
 - `AccountSites`
->>>>>>> Stashed changes
-- `ScrubbingCenters`
+- `AlertState`
+- `AssetExtensions`
 - `Assets`
-- `Incidents`
-- `BackupIncidents`
-- `Tasks`
 - `AssetTasksLogs`
 - `Alerts`
+- `Backends`
+- `Certificates`
+- `DefaultLayouts`
+- `DeploymentFlags`
+- `DpPolicies`
+- `DpPoliciesProfiles`
+- `Enumerators`
+- `FeatureFlags`
+- `GlobalSettings`
+- `Incidents`
+- `ProtectionPlans`
+- `Providers`
+- `Roles`
+- `ScAlteonResourceIds`
+- `ScAssetResourceIds`
+- `ScGREResourceIds`
+- `ScRoutes`
+- `ScrubbingCenterDeviceStatuses`
+- `ScrubbingCenterExtensions`
+- `ScrubbingCenterInterconnects`
+- `ScrubbingCenters`
+- `ServiceSettings`
+- `Services`
+- `Settings`
+- `Tasks`
+- `Tokens`
+- `Users`
+- `VIPPools`
 
 For an ad hoc subset, use `--collections`, for example:
 
