@@ -1,0 +1,9 @@
+{
+  "name": "demo-with-pool-dpx",
+  "description": "NEW-LAB with LAB3-DPX-7 (10.14.194.107, v10.13.0.0, model MX) as second live attack-zone DPX; LAB-UHT-4 blocked (op_status=2); LAB3-DPX-7 unblocked (op_status=1)",
+  "createdAt": "2026-05-31T15:56:15.094Z",
+  "database": "sdcc",
+  "container": "legacy-portal-mongo-1",
+  "archive": "sdcc.archive.gz",
+  "excludedCollections": []
+}
