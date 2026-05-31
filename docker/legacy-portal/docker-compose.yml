@@ -24,6 +24,7 @@ x-portal-environment: &portal-environment
   SDCC_BACKEND_NAME: ${SDCC_BACKEND_NAME:-docker}
   SDCC_BACKEND_IP: ${SDCC_BACKEND_IP:-127.0.0.1}
   SDCC_BACKEND_ROLE: ${SDCC_BACKEND_ROLE:-hybrid}
+  SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-provisioning}
 
 x-portal-service-base: &portal-service-base
   build: *portal-build
@@ -37,6 +38,7 @@ x-hybrid-backend-environment: &hybrid-backend-environment
   SDCC_BACKEND_NAME: ${SDCC_BACKEND_NAME:-docker}
   SDCC_BACKEND_IP: ${SDCC_BACKEND_IP:-10.20.4.20}
   SDCC_BACKEND_ROLE: hybrid
+  SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-provisioning}
 
 # Profiles are two independent dimensions — always combine one from each:
 #
