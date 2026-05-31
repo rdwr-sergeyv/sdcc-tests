@@ -129,10 +129,14 @@ function help() {
   make dp-isolate:status       Show portal/client status
   make dp-isolate:restore-ready Restore the ready-for-tests DP Isolate fixture
   make dp-isolate:task-snapshot Show isolation task/log summary for ASSET_ID
+  make dp-isolate:device-password Decrypt a management device password field for SC/DP
+  make dp-isolate:vision-password Decrypt a Vision database password for SC/VISION
   make dp-isolate:policy-capacity-min Set Attack Zone DP policy capacity to the minimum
   make dp-isolate:policy-capacity-restore Restore Attack Zone DP policy capacity defaults
   make restore-ready           Same as dp-isolate:restore-ready
   make task-snapshot           Same as dp-isolate:task-snapshot
+  make device-password         Same as dp-isolate:device-password
+  make vision-password         Same as dp-isolate:vision-password
   make policy-capacity-min     Same as dp-isolate:policy-capacity-min
   make policy-capacity-restore Same as dp-isolate:policy-capacity-restore
   make kafka-producer          Send one synthetic security event to Kafka
@@ -167,6 +171,10 @@ Environment:
   SDCC_LICENSE_MODULES         Comma-separated module names, default all
   SDCC_LICENSE_SERVICES        Comma-separated backend services, default incident-manager,cmd-executor
   SDCC_TASK_TYPE                Task execution type, default build; set to provisioning to execute device commands
+  SC                            Scrubbing center name/abbreviation for password helpers
+  DP                            Device name/IP/ID for device-password
+  VISION                        Vision name/host/ID for vision-password
+  ARGS                          Extra password helper args, e.g. --field snmp_community
   KAFKA_BOOTSTRAP              Kafka bootstrap server, default kafkaQA:9092
   KAFKA_DOCKER_NETWORK         Docker network for producer container, default lab
   KAFKA_PRODUCER_UI_PORT       Kafka producer UI port, default 3000
