@@ -1,7 +1,7 @@
 {
   "name": "ready-for-tests",
-  "description": "with-attack-zone-dps restored and runtime/history collections omitted",
-  "createdAt": "2026-05-10T09:08:44.392Z",
+  "description": "with-attack-zone-dps, SC backends fixed (NEW-LAB→docker, SCRUBBING_1→be-monitor), runtime/history collections omitted",
+  "createdAt": "2026-05-31T11:49:12.151Z",
   "database": "sdcc",
   "container": "legacy-portal-mongo-1",
   "archive": "sdcc.archive.gz",
