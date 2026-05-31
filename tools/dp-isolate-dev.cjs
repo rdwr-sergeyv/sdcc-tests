@@ -1,86 +1,100 @@
 #!/usr/bin/env node
 
-const fs = require('node:fs');
-const http = require('node:http');
-const path = require('node:path');
-const { spawn, spawnSync } = require('node:child_process');
+const fs = require("node:fs");
+const http = require("node:http");
+const path = require("node:path");
+const { spawn, spawnSync } = require("node:child_process");
 
-const root = path.resolve(__dirname, '..');
-const composeFile = path.join(root, 'docker', 'legacy-portal', 'docker-compose.yml');
-const stateDir = path.join(root, '.tmp', 'dp-isolate');
-const logsDir = path.join(root, 'logs');
-const clientPidFile = path.join(stateDir, 'client.pid');
-const clientLogFile = path.join(logsDir, 'dp-isolate-client.log');
-const viteBin = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js');
-const portalPort = Number(process.env.LEGACY_PORTAL_PORT || readEnv('LEGACY_PORTAL_PORT') || 8000);
-const clientPort = Number(process.env.DP_ISOLATE_CLIENT_PORT || readEnv('DP_ISOLATE_CLIENT_PORT') || 5173);
-const portalUrl = process.env.SDCC_PORTAL_PUBLIC_URL || readEnv('SDCC_PORTAL_PUBLIC_URL') || `http://localhost:${portalPort}`;
+const root = path.resolve(__dirname, "..");
+const composeFile = path.join(
+  root,
+  "docker",
+  "legacy-portal",
+  "docker-compose.yml",
+);
+const stateDir = path.join(root, ".tmp", "dp-isolate");
+const logsDir = path.join(root, "logs");
+const clientPidFile = path.join(stateDir, "client.pid");
+const clientLogFile = path.join(logsDir, "dp-isolate-client.log");
+const viteBin = path.join(root, "node_modules", "vite", "bin", "vite.js");
+const portalPort = Number(
+  process.env.LEGACY_PORTAL_PORT || readEnv("LEGACY_PORTAL_PORT") || 8000,
+);
+const clientPort = Number(
+  process.env.DP_ISOLATE_CLIENT_PORT ||
+    readEnv("DP_ISOLATE_CLIENT_PORT") ||
+    5173,
+);
+const portalUrl =
+  process.env.SDCC_PORTAL_PUBLIC_URL ||
+  readEnv("SDCC_PORTAL_PUBLIC_URL") ||
+  `http://localhost:${portalPort}`;
 const clientUrl = `http://localhost:${clientPort}`;
 const backendServices = [
-  'alert-manager-aggregator',
-  'ar-config-poller',
-  'asset-advertisement-aggregator',
-  'asset-aggregator',
-  'asset-health-aggregator',
-  'attack-aggregator',
-  'attacks-poller',
-  'bgp-advertise-poller',
-  'bgp-over-gre-aggregator',
-  'bgp-peer-poller',
-  'bgp-routing-poller',
-  'cmd-executor',
-  'daily-jobs-aggregator',
-  'diversion-period-checker-aggregator',
-  'domain-resolve-aggregator',
-  'domain-resolve-poller',
-  'dp-fail-over-aggregator',
-  'dp-fail-over-poller',
-  'dp-policy-inconsistency-aggregator',
-  'dp-policy-manager',
-  'file-reporter-aggregator',
-  'flow-poller',
-  'health-poller',
-  'incident-manager',
-  'netflow-manager',
-  'pdf-incident-reporter-aggregator',
-  'resource-utilization-aggregator',
-  'sc-aggregator',
-  'sc-poller',
-  'site-aggregator',
-  'site-poller',
-  'static-route-aggregator',
-  'static-routes-poller',
-  'status-aggregator',
-  'ts-aggregator',
-  'vision-api-poller',
-  'vision-connectivity-aggregator',
-  'vision-control-poller',
-  'vision-cpe-aggregator',
-  'vision-device-policy-aggregator',
-  'vision-device-policy-poller',
-  'vision-policies-aggregator',
-  'vision-policies-poller',
-  'waf-route-poller',
-  'waf-ssl-protection-aggregator',
+  "alert-manager-aggregator",
+  "ar-config-poller",
+  "asset-advertisement-aggregator",
+  "asset-aggregator",
+  "asset-health-aggregator",
+  "attack-aggregator",
+  "attacks-poller",
+  "bgp-advertise-poller",
+  "bgp-over-gre-aggregator",
+  "bgp-peer-poller",
+  "bgp-routing-poller",
+  "cmd-executor",
+  "daily-jobs-aggregator",
+  "diversion-period-checker-aggregator",
+  "domain-resolve-aggregator",
+  "domain-resolve-poller",
+  "dp-fail-over-aggregator",
+  "dp-fail-over-poller",
+  "dp-policy-inconsistency-aggregator",
+  "dp-policy-manager",
+  "file-reporter-aggregator",
+  "flow-poller",
+  "health-poller",
+  "incident-manager",
+  "netflow-manager",
+  "pdf-incident-reporter-aggregator",
+  "resource-utilization-aggregator",
+  "sc-aggregator",
+  "sc-poller",
+  "site-aggregator",
+  "site-poller",
+  "static-route-aggregator",
+  "static-routes-poller",
+  "status-aggregator",
+  "ts-aggregator",
+  "vision-api-poller",
+  "vision-connectivity-aggregator",
+  "vision-control-poller",
+  "vision-cpe-aggregator",
+  "vision-device-policy-aggregator",
+  "vision-device-policy-poller",
+  "vision-policies-aggregator",
+  "vision-policies-poller",
+  "waf-route-poller",
+  "waf-ssl-protection-aggregator",
 ];
 
 const commands = {
   help,
   run,
-  'run-build-only': runBuildOnly,
-  'run-ui-only': runUiOnly,
+  "run-build-only": runBuildOnly,
+  "run-ui-only": runUiOnly,
   status,
-  'portal-up': portalUp,
-  'portal-build-only-up': portalBuildOnlyUp,
-  'portal-ui-up': portalUiUp,
-  'portal-restart': portalRestart,
-  'portal-rebuild': portalRebuild,
-  'portal-down': portalDown,
-  'portal-logs': portalLogs,
-  'portal-license-backends': portalLicenseBackends,
-  'client-up': clientUp,
-  'client-down': clientDown,
-  'client-logs': clientLogs,
+  "portal-up": portalUp,
+  "portal-build-only-up": portalBuildOnlyUp,
+  "portal-ui-up": portalUiUp,
+  "portal-restart": portalRestart,
+  "portal-rebuild": portalRebuild,
+  "portal-down": portalDown,
+  "portal-logs": portalLogs,
+  "portal-license-backends": portalLicenseBackends,
+  "client-up": clientUp,
+  "client-down": clientDown,
+  "client-logs": clientLogs,
   open: openClient,
   logs,
   restart,
@@ -95,7 +109,7 @@ main().catch((error) => {
 });
 
 async function main() {
-  const command = process.argv[2] || 'help';
+  const command = process.argv[2] || "help";
   const fn = commands[command];
   if (!fn) {
     console.error(`Unknown command: ${command}`);
@@ -129,10 +143,14 @@ function help() {
   make dp-isolate:status       Show portal/client status
   make dp-isolate:restore-ready Restore the ready-for-tests DP Isolate fixture
   make dp-isolate:task-snapshot Show isolation task/log summary for ASSET_ID
+  make dp-isolate:device-password Decrypt a management device password field for SC/DP
+  make dp-isolate:vision-password Decrypt a Vision database password for SC/VISION
   make dp-isolate:policy-capacity-min Set Attack Zone DP policy capacity to the minimum
   make dp-isolate:policy-capacity-restore Restore Attack Zone DP policy capacity defaults
   make restore-ready           Same as dp-isolate:restore-ready
   make task-snapshot           Same as dp-isolate:task-snapshot
+  make device-password         Same as dp-isolate:device-password
+  make vision-password         Same as dp-isolate:vision-password
   make policy-capacity-min     Same as dp-isolate:policy-capacity-min
   make policy-capacity-restore Same as dp-isolate:policy-capacity-restore
   make kafka-producer          Send one synthetic security event to Kafka
@@ -167,6 +185,11 @@ Environment:
   SDCC_LICENSE_IFN             Container interface for license generation, default eth0
   SDCC_LICENSE_MODULES         Comma-separated module names, default all
   SDCC_LICENSE_SERVICES        Comma-separated backend services, default incident-manager,cmd-executor
+  SDCC_TASK_TYPE                Task execution type, default build; set to provisioning to execute device commands
+  SC                            Scrubbing center name/abbreviation for password helpers
+  DP                            Device name/IP/ID for device-password
+  VISION                        Vision name/host/ID for vision-password
+  ARGS                          Extra password helper args, e.g. --field snmp_community
   KAFKA_BOOTSTRAP              Kafka bootstrap server, default kafkaQA:9092
   KAFKA_DOCKER_NETWORK         Docker network for producer container, default lab
   KAFKA_PRODUCER_UI_PORT       Kafka producer UI port, default 3000
@@ -191,121 +214,147 @@ async function runUiOnly() {
 }
 
 async function status() {
-  console.log('Legacy portal Docker:');
-  const ps = dockerCompose(['ps']);
+  console.log("Legacy portal Docker:");
+  const ps = dockerCompose(["ps"]);
   if (ps.status === 0) {
-    process.stdout.write(ps.stdout || '(no compose status output)\n');
+    process.stdout.write(ps.stdout || "(no compose status output)\n");
   } else {
-    console.log('not available');
+    console.log("not available");
     if (ps.stderr) process.stderr.write(ps.stderr);
     if (ps.error) process.stderr.write(`${ps.error.message}\n`);
   }
-  console.log(`\nPortal HTTP ${portalUrl}: ${await isHttpReady(portalUrl) ? 'ready' : 'not ready'}`);
-  console.log(`DP Isolate client ${clientUrl}: ${await isHttpReady(clientUrl) ? 'ready' : 'not ready'}`);
+  console.log(
+    `\nPortal HTTP ${portalUrl}: ${(await isHttpReady(portalUrl)) ? "ready" : "not ready"}`,
+  );
+  console.log(
+    `DP Isolate client ${clientUrl}: ${(await isHttpReady(clientUrl)) ? "ready" : "not ready"}`,
+  );
   const pid = readPid();
-  console.log(`Client PID file: ${pid ? pid : 'none'}`);
+  console.log(`Client PID file: ${pid ? pid : "none"}`);
   console.log(`Client log: ${clientLogFile}`);
 }
 
 async function portalUp() {
-  const profileArgs = composeProfileArgs(['execute', 'minimal']);
-  const args = [...profileArgs, 'up', '--build', '-d'];
-  console.log(`Starting legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`);
-  console.log('Checking Docker CLI...');
-  ensureCommand('docker', ['--version'], 'Docker CLI is required.');
+  const profileArgs = composeProfileArgs(["execute", "minimal"]);
+  const args = [...profileArgs, "up", "--build", "-d"];
+  console.log(
+    `Starting legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`,
+  );
+  console.log("Checking Docker CLI...");
+  ensureCommand("docker", ["--version"], "Docker CLI is required.");
   await runDockerComposeLive(args);
-  await waitForUrl(portalUrl, 120000, 'legacy portal');
+  await waitForUrl(portalUrl, 120000, "legacy portal");
 }
 
 async function portalBuildOnlyUp() {
-  const profileArgs = composeProfileArgs(['build-only', 'minimal']);
-  const args = [...profileArgs, 'up', '--build', '-d'];
-  console.log(`Starting legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`);
-  console.log('Checking Docker CLI...');
-  ensureCommand('docker', ['--version'], 'Docker CLI is required.');
+  const profileArgs = composeProfileArgs(["build-only", "minimal"]);
+  const args = [...profileArgs, "up", "--build", "-d"];
+  console.log(
+    `Starting legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`,
+  );
+  console.log("Checking Docker CLI...");
+  ensureCommand("docker", ["--version"], "Docker CLI is required.");
   await runDockerComposeLive(args);
-  await waitForUrl(portalUrl, 120000, 'legacy portal');
+  await waitForUrl(portalUrl, 120000, "legacy portal");
 }
 
 async function portalUiUp() {
-  const profileArgs = composeProfileArgs(['execute', 'minimal']);
-  const profiles = composeProfiles(['execute', 'minimal']);
-  const portalService = profiles.includes('build-only') ? 'portal-build' : 'portal';
-  const services = profileArgs.length ? ['mongo', portalService] : [portalService];
-  const args = [...profileArgs, 'up', '--build', '-d', ...services];
-  console.log(`Starting legacy portal UI-only stack (${describeComposeProfiles(profileArgs)})...`);
-  console.log('Checking Docker CLI...');
-  ensureCommand('docker', ['--version'], 'Docker CLI is required.');
+  const profileArgs = composeProfileArgs(["execute", "minimal"]);
+  const profiles = composeProfiles(["execute", "minimal"]);
+  const portalService = profiles.includes("build-only")
+    ? "portal-build"
+    : "portal";
+  const services = profileArgs.length
+    ? ["mongo", portalService]
+    : [portalService];
+  const args = [...profileArgs, "up", "--build", "-d", ...services];
+  console.log(
+    `Starting legacy portal UI-only stack (${describeComposeProfiles(profileArgs)})...`,
+  );
+  console.log("Checking Docker CLI...");
+  ensureCommand("docker", ["--version"], "Docker CLI is required.");
   await runDockerComposeLive(args);
   await stopWorkersIfPresent();
-  await waitForUrl(portalUrl, 120000, 'legacy portal');
+  await waitForUrl(portalUrl, 120000, "legacy portal");
 }
 
 async function stopWorkersIfPresent() {
-  console.log('Ensuring backend worker services are stopped...');
-  await runDockerComposeLive(['stop', ...backendServices]);
+  console.log("Ensuring backend worker services are stopped...");
+  await runDockerComposeLive(["stop", ...backendServices]);
 }
 
 async function portalRestart() {
-  const profileArgs = composeProfileArgs(['execute', 'minimal']);
-  const args = [...profileArgs, 'up', '-d'];
-  console.log('Restarting legacy portal Docker Compose stack without rebuilding...');
-  console.log('Checking Docker CLI...');
-  ensureCommand('docker', ['--version'], 'Docker CLI is required.');
-  const ps = dockerCompose(['ps', '-q']);
-  if (ps.status !== 0 || !String(ps.stdout || '').trim()) {
-    console.log('No existing compose containers found; starting stack instead.');
+  const profileArgs = composeProfileArgs(["execute", "minimal"]);
+  const args = [...profileArgs, "up", "-d"];
+  console.log(
+    "Restarting legacy portal Docker Compose stack without rebuilding...",
+  );
+  console.log("Checking Docker CLI...");
+  ensureCommand("docker", ["--version"], "Docker CLI is required.");
+  const ps = dockerCompose(["ps", "-q"]);
+  if (ps.status !== 0 || !String(ps.stdout || "").trim()) {
+    console.log(
+      "No existing compose containers found; starting stack instead.",
+    );
     await portalUp();
     return;
   }
   await runDockerComposeLive(args);
-  await waitForUrl(portalUrl, 120000, 'legacy portal');
+  await waitForUrl(portalUrl, 120000, "legacy portal");
 }
 
 async function portalDown() {
-  console.log('Stopping legacy portal Docker Compose stack...');
-  await runDockerComposeLive(['down']);
+  console.log("Stopping legacy portal Docker Compose stack...");
+  await runDockerComposeLive(["down"]);
 }
 
 async function portalLogs() {
-  await runDockerComposeLive(['logs', '--tail', '120']);
+  await runDockerComposeLive(["logs", "--tail", "120"]);
 }
 
 async function portalLicenseBackends() {
-  console.log('Activating SDCC licensed modules in backend containers...');
-  console.log('Checking Docker CLI...');
-  ensureCommand('docker', ['--version'], 'Docker CLI is required.');
+  console.log("Activating SDCC licensed modules in backend containers...");
+  console.log("Checking Docker CLI...");
+  ensureCommand("docker", ["--version"], "Docker CLI is required.");
 
-  const services = parseListEnv('SDCC_LICENSE_SERVICES', ['incident-manager', 'cmd-executor']);
-  const ifn = process.env.SDCC_LICENSE_IFN || readEnv('SDCC_LICENSE_IFN') || 'eth0';
-  const modules = parseListEnv('SDCC_LICENSE_MODULES', ['all']);
-  const moduleArgs = modules.map(shellQuote).join(' ');
+  const services = parseListEnv("SDCC_LICENSE_SERVICES", [
+    "incident-manager",
+    "cmd-executor",
+  ]);
+  const ifn =
+    process.env.SDCC_LICENSE_IFN || readEnv("SDCC_LICENSE_IFN") || "eth0";
+  const modules = parseListEnv("SDCC_LICENSE_MODULES", ["all"]);
+  const moduleArgs = modules.map(shellQuote).join(" ");
 
   for (const service of services) {
-    console.log(`\n[${service}] Activating modules "${modules.join(', ')}" using interface ${ifn}...`);
+    console.log(
+      `\n[${service}] Activating modules "${modules.join(", ")}" using interface ${ifn}...`,
+    );
     await runDockerComposeLive([
-      'exec',
-      '-T',
+      "exec",
+      "-T",
       service,
-      'sh',
-      '-lc',
+      "sh",
+      "-lc",
       [
         `sdcc-manage-module -a deactivate -m ${moduleArgs} || true`,
         `sdcc-manage-module -a activate -i ${shellQuote(ifn)} -m ${moduleArgs}`,
-        'sdcc-manage-module -a list',
-      ].join(' && '),
+        "sdcc-manage-module -a list",
+      ].join(" && "),
     ]);
   }
 }
 
 async function portalRebuild() {
-  const profileArgs = composeProfileArgs(['execute', 'minimal']);
-  const args = [...profileArgs, 'up', '--build', '--force-recreate', '-d'];
-  console.log(`Rebuilding legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`);
-  console.log('Checking Docker CLI...');
-  ensureCommand('docker', ['--version'], 'Docker CLI is required.');
+  const profileArgs = composeProfileArgs(["execute", "minimal"]);
+  const args = [...profileArgs, "up", "--build", "--force-recreate", "-d"];
+  console.log(
+    `Rebuilding legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`,
+  );
+  console.log("Checking Docker CLI...");
+  ensureCommand("docker", ["--version"], "Docker CLI is required.");
   await runDockerComposeLive(args);
-  await waitForUrl(portalUrl, 120000, 'legacy portal');
+  await waitForUrl(portalUrl, 120000, "legacy portal");
 }
 
 async function clientUp() {
@@ -315,30 +364,42 @@ async function clientUp() {
   }
 
   if (!fs.existsSync(viteBin)) {
-    throw new Error('Vite is not installed. Run npm install from sdcc-tests, then retry make run-dp-isolate.');
+    throw new Error(
+      "Vite is not installed. Run npm install from sdcc-tests, then retry make run-dp-isolate.",
+    );
   }
   ensureDir(stateDir);
   ensureDir(logsDir);
 
   console.log(`Starting DP Isolate client on ${clientUrl}...`);
-  const log = fs.openSync(clientLogFile, 'a');
-  const child = spawn(process.execPath, [viteBin, '--host', '127.0.0.1', '--config', 'client/dp-isolate/vite.config.js'], {
-    cwd: root,
-    detached: true,
-    env: {
-      ...process.env,
-      PORTAL_ORIGIN: process.env.PORTAL_ORIGIN || portalUrl,
-      DP_ISOLATE_CLIENT_PORT: String(clientPort),
+  const log = fs.openSync(clientLogFile, "a");
+  const child = spawn(
+    process.execPath,
+    [
+      viteBin,
+      "--host",
+      "127.0.0.1",
+      "--config",
+      "client/dp-isolate/vite.config.js",
+    ],
+    {
+      cwd: root,
+      detached: true,
+      env: {
+        ...process.env,
+        PORTAL_ORIGIN: process.env.PORTAL_ORIGIN || portalUrl,
+        DP_ISOLATE_CLIENT_PORT: String(clientPort),
+      },
+      stdio: ["ignore", log, log],
+      windowsHide: true,
     },
-    stdio: ['ignore', log, log],
-    windowsHide: true,
-  });
+  );
 
   fs.writeFileSync(clientPidFile, String(child.pid));
   child.unref();
   console.log(`Started DP Isolate client on ${clientUrl} (pid ${child.pid}).`);
   console.log(`Client log: ${clientLogFile}`);
-  await waitForUrl(clientUrl, 60000, 'DP Isolate client');
+  await waitForUrl(clientUrl, 60000, "DP Isolate client");
 }
 
 async function clientDown() {
@@ -347,7 +408,7 @@ async function clientDown() {
     killProcessTree(pid);
     console.log(`Stopped DP Isolate client process ${pid}.`);
   } else {
-    console.log('No running DP Isolate client PID found.');
+    console.log("No running DP Isolate client PID found.");
   }
   removeIfExists(clientPidFile);
 }
@@ -361,7 +422,7 @@ function clientLogs() {
 }
 
 async function openClient() {
-  await waitForUrl(clientUrl, 60000, 'DP Isolate client');
+  await waitForUrl(clientUrl, 60000, "DP Isolate client");
   openUrl(clientUrl);
   console.log(`Opened ${clientUrl}`);
 }
@@ -379,7 +440,8 @@ async function restart() {
 }
 
 function ensureTaskTypeDefault() {
-  process.env.SDCC_TASK_TYPE = process.env.SDCC_TASK_TYPE || readEnv('SDCC_TASK_TYPE') || 'build';
+  process.env.SDCC_TASK_TYPE =
+    process.env.SDCC_TASK_TYPE || readEnv("SDCC_TASK_TYPE") || "build";
   console.log(`Task execution type: ${process.env.SDCC_TASK_TYPE}`);
 }
 
@@ -391,9 +453,9 @@ async function rebuild() {
 }
 
 async function logs() {
-  console.log('Recent legacy portal Docker logs:');
+  console.log("Recent legacy portal Docker logs:");
   await portalLogs();
-  console.log('\nRecent DP Isolate client logs:');
+  console.log("\nRecent DP Isolate client logs:");
   clientLogs();
 }
 
@@ -402,14 +464,14 @@ function clean() {
   removeIfExists(clientLogFile);
   removeEmptyDir(stateDir);
   removeEmptyDir(logsDir);
-  console.log('Removed DP Isolate launcher state where present.');
+  console.log("Removed DP Isolate launcher state where present.");
 }
 
 function readEnv(name) {
   const envFiles = [
-    path.join(root, '.env'),
-    path.join(root, 'docker', 'legacy-portal', '.env'),
-    path.join(root, 'client', 'dp-isolate', '.env.local'),
+    path.join(root, ".env"),
+    path.join(root, "docker", "legacy-portal", ".env"),
+    path.join(root, "client", "dp-isolate", ".env.local"),
   ];
   for (const file of envFiles) {
     if (!fs.existsSync(file)) continue;
@@ -421,7 +483,8 @@ function readEnv(name) {
 
 function parseEnvFile(file) {
   return Object.fromEntries(
-    fs.readFileSync(file, 'utf8')
+    fs
+      .readFileSync(file, "utf8")
       .split(/\r?\n/)
       .map((line) => line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/))
       .filter(Boolean)
@@ -430,7 +493,10 @@ function parseEnvFile(file) {
 }
 
 function stripQuotes(value) {
-  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
     return value.slice(1, -1);
   }
   return value;
@@ -439,22 +505,28 @@ function stripQuotes(value) {
 function parseListEnv(name, defaults) {
   const raw = process.env[name] || readEnv(name);
   if (!raw) return defaults;
-  const values = raw.split(',').map((item) => item.trim()).filter(Boolean);
+  const values = raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
   return values.length ? values : defaults;
 }
 
 function composeProfiles(defaults) {
-  const raw = Object.hasOwn(process.env, 'DP_ISOLATE_COMPOSE_PROFILE')
+  const raw = Object.hasOwn(process.env, "DP_ISOLATE_COMPOSE_PROFILE")
     ? process.env.DP_ISOLATE_COMPOSE_PROFILE
-    : readEnv('DP_ISOLATE_COMPOSE_PROFILE');
+    : readEnv("DP_ISOLATE_COMPOSE_PROFILE");
   if (!raw) return defaults;
-  const profiles = raw.split(',').map((item) => item.trim()).filter(Boolean);
-  if (profiles.length === 1 && profiles[0] === 'none') return [];
+  const profiles = raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (profiles.length === 1 && profiles[0] === "none") return [];
   return profiles.length ? profiles : defaults;
 }
 
 function composeProfileArgs(defaults) {
-  return composeProfiles(defaults).flatMap((profile) => ['--profile', profile]);
+  return composeProfiles(defaults).flatMap((profile) => ["--profile", profile]);
 }
 
 function describeComposeProfiles(profileArgs) {
@@ -462,7 +534,7 @@ function describeComposeProfiles(profileArgs) {
   for (let index = 0; index < profileArgs.length; index += 2) {
     profiles.push(profileArgs[index + 1]);
   }
-  return profiles.length ? `profiles: ${profiles.join(', ')}` : 'no profile';
+  return profiles.length ? `profiles: ${profiles.join(", ")}` : "no profile";
 }
 
 function shellQuote(value) {
@@ -470,41 +542,41 @@ function shellQuote(value) {
 }
 
 function dockerCompose(args) {
-  return spawnSync('docker', ['compose', '-f', composeFile, ...args], {
+  return spawnSync("docker", ["compose", "-f", composeFile, ...args], {
     cwd: root,
-    encoding: 'utf8',
+    encoding: "utf8",
   });
 }
 
 function runDockerComposeLive(args) {
   return new Promise((resolve, reject) => {
-    const command = ['docker', 'compose', '-f', composeFile, ...args].join(' ');
+    const command = ["docker", "compose", "-f", composeFile, ...args].join(" ");
     let lastOutputAt = Date.now();
     console.log(`Running: ${command}`);
-    const child = spawn('docker', ['compose', '-f', composeFile, ...args], {
+    const child = spawn("docker", ["compose", "-f", composeFile, ...args], {
       cwd: root,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });
     const heartbeat = setInterval(() => {
       if (Date.now() - lastOutputAt >= 15000) {
-        console.log('docker compose is still running...');
+        console.log("docker compose is still running...");
         lastOutputAt = Date.now();
       }
     }, 5000);
-    child.stdout.on('data', (chunk) => {
+    child.stdout.on("data", (chunk) => {
       lastOutputAt = Date.now();
       process.stdout.write(chunk);
     });
-    child.stderr.on('data', (chunk) => {
+    child.stderr.on("data", (chunk) => {
       lastOutputAt = Date.now();
       process.stderr.write(chunk);
     });
-    child.on('error', (error) => {
+    child.on("error", (error) => {
       clearInterval(heartbeat);
       reject(error);
     });
-    child.on('exit', (code) => {
+    child.on("exit", (code) => {
       clearInterval(heartbeat);
       if (code === 0) {
         resolve();
@@ -516,7 +588,7 @@ function runDockerComposeLive(args) {
 }
 
 function ensureCommand(command, args, message) {
-  const result = spawnSync(command, args, { encoding: 'utf8', timeout: 10000 });
+  const result = spawnSync(command, args, { encoding: "utf8", timeout: 10000 });
   if (result.error || result.status !== 0 || result.signal) {
     if (result.stderr) process.stderr.write(result.stderr);
     throw new Error(message);
@@ -533,13 +605,20 @@ async function waitForUrl(url, timeoutMs, label) {
       return;
     }
     if (Date.now() >= nextNotice) {
-      const remainingSeconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      console.log(`${label} is not ready yet; waiting up to ${remainingSeconds}s more...`);
+      const remainingSeconds = Math.max(
+        0,
+        Math.ceil((deadline - Date.now()) / 1000),
+      );
+      console.log(
+        `${label} is not ready yet; waiting up to ${remainingSeconds}s more...`,
+      );
       nextNotice = Date.now() + 10000;
     }
     await sleep(1500);
   }
-  throw new Error(`${label} did not become ready within ${Math.round(timeoutMs / 1000)}s: ${url}`);
+  throw new Error(
+    `${label} did not become ready within ${Math.round(timeoutMs / 1000)}s: ${url}`,
+  );
 }
 
 function isHttpReady(url) {
@@ -548,17 +627,17 @@ function isHttpReady(url) {
       response.resume();
       resolve(response.statusCode >= 200 && response.statusCode < 500);
     });
-    request.on('timeout', () => {
+    request.on("timeout", () => {
       request.destroy();
       resolve(false);
     });
-    request.on('error', () => resolve(false));
+    request.on("error", () => resolve(false));
   });
 }
 
 function readPid() {
   if (!fs.existsSync(clientPidFile)) return null;
-  const pid = Number(fs.readFileSync(clientPidFile, 'utf8').trim());
+  const pid = Number(fs.readFileSync(clientPidFile, "utf8").trim());
   return Number.isInteger(pid) && pid > 0 ? pid : null;
 }
 
@@ -572,14 +651,16 @@ function isProcessRunning(pid) {
 }
 
 function killProcessTree(pid) {
-  if (process.platform === 'win32') {
-    spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+      stdio: "ignore",
+    });
   } else {
     try {
-      process.kill(-pid, 'SIGTERM');
+      process.kill(-pid, "SIGTERM");
     } catch {
       try {
-        process.kill(pid, 'SIGTERM');
+        process.kill(pid, "SIGTERM");
       } catch {
         return;
       }
@@ -588,12 +669,16 @@ function killProcessTree(pid) {
 }
 
 function openUrl(url) {
-  if (process.platform === 'win32') {
-    spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-  } else if (process.platform === 'darwin') {
-    spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
+  if (process.platform === "win32") {
+    spawn("cmd", ["/c", "start", "", url], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+    }).unref();
+  } else if (process.platform === "darwin") {
+    spawn("open", [url], { detached: true, stdio: "ignore" }).unref();
   } else {
-    spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
+    spawn("xdg-open", [url], { detached: true, stdio: "ignore" }).unref();
   }
 }
 
@@ -615,8 +700,8 @@ function removeEmptyDir(dir) {
 }
 
 function tailFile(file, maxLines) {
-  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
-  return lines.slice(-maxLines).join('\n');
+  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+  return lines.slice(-maxLines).join("\n");
 }
 
 function sleep(ms) {
