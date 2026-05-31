@@ -17,14 +17,45 @@ x-common-environment: &common-environment
   SDCC_MONGO_PORT: ${SDCC_MONGO_PORT:-27017}
   SDCC_MONGO_DB: ${SDCC_MONGO_DB:-sdcc}
   SDCC_PORTAL_PUBLIC_URL: ${SDCC_PORTAL_PUBLIC_URL:-http://localhost:8000}
-  SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-build}
   SDCC_DEMO_BYPASS_LICENSE: ${SDCC_DEMO_BYPASS_LICENSE:-1}
+
+x-portal-environment: &portal-environment
+  <<: *common-environment
+  SDCC_BACKEND_NAME: ${SDCC_BACKEND_NAME:-docker}
+  SDCC_BACKEND_IP: ${SDCC_BACKEND_IP:-127.0.0.1}
+  SDCC_BACKEND_ROLE: ${SDCC_BACKEND_ROLE:-hybrid}
+
+x-portal-service-base: &portal-service-base
+  build: *portal-build
+  ports:
+    - "${LEGACY_PORTAL_PORT:-8000}:8000"
+  volumes:
+    - *device-templates-volume
 
 x-hybrid-backend-environment: &hybrid-backend-environment
   <<: *common-environment
   SDCC_BACKEND_NAME: ${SDCC_BACKEND_NAME:-docker}
   SDCC_BACKEND_IP: ${SDCC_BACKEND_IP:-10.20.4.20}
   SDCC_BACKEND_ROLE: hybrid
+
+# Profiles are two independent dimensions — always combine one from each:
+#
+#   Task type (portal only):
+#     execute    — no SDCC_TASK_TYPE set; portal runs in default execution mode
+#     build-only — SDCC_TASK_TYPE=build; portal creates task records in the DB
+#
+#   Service scope (backend services):
+#     minimal    — mongo + cmd-executor + incident-manager
+#     full       — mongo + all backend services
+#
+#   Examples:
+#     --profile execute   --profile minimal
+#     --profile execute   --profile full
+#     --profile build-only --profile minimal
+#     --profile build-only --profile full
+#
+#   Standalone:
+#     internal-mongo — mongo only (use with an external portal instance)
 
 x-full-profile: &full-profile
   - full
@@ -60,16 +91,18 @@ services:
       retries: 30
 
   portal:
-    build: *portal-build
+    <<: *portal-service-base
+    profiles:
+      - execute
+    environment: *portal-environment
+
+  portal-build:
+    <<: *portal-service-base
+    profiles:
+      - build-only
     environment:
-      <<: *common-environment
-      SDCC_BACKEND_NAME: ${SDCC_BACKEND_NAME:-docker}
-      SDCC_BACKEND_IP: ${SDCC_BACKEND_IP:-127.0.0.1}
-      SDCC_BACKEND_ROLE: ${SDCC_BACKEND_ROLE:-hybrid}
-    ports:
-      - "${LEGACY_PORTAL_PORT:-8000}:8000"
-    volumes:
-      - *device-templates-volume
+      <<: *portal-environment
+      SDCC_TASK_TYPE: build
 
   alert-manager-aggregator:
     <<: *backend-service
