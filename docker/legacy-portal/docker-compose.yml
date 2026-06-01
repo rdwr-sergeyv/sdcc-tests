@@ -257,9 +257,28 @@ services:
       SDCC_BACKEND_IP: 127.0.0.4
       # Swappable supervisord profile (file under supervisor/): minimal-hybrid
       # (cmd-executor + incident-manager) or full-hybrid (all backend services).
-      # Override from host env, e.g. SDCC_SUPERVISOR_PROFILE=full-hybrid.
-      SDCC_SUPERVISOR_PROFILE: ${SDCC_SUPERVISOR_PROFILE:-minimal-hybrid}
+      # Per-backend host override, e.g. SDCC_HYBRID_PROFILE=full-hybrid.
+      SDCC_SUPERVISOR_PROFILE: ${SDCC_HYBRID_PROFILE:-minimal-hybrid}
     command: ["/bin/sh", "-c", "exec supervisord -c /etc/sdcc/supervisor/${SDCC_SUPERVISOR_PROFILE:-minimal-hybrid}.conf"]
+    volumes:
+      - *device-templates-volume
+      - type: bind
+        source: ./supervisor
+        target: /etc/sdcc/supervisor
+        read_only: true
+
+  # Supervised MONITOR backend node (PLAN item 3). Registers as backend "monitor-1";
+  # runs the poller-role programs only (full-monitor profile). No SCs assigned yet,
+  # so its pollers sit idle. Per-backend host override: SDCC_MONITOR_PROFILE.
+  backend-monitor:
+    <<: *backend-service
+    environment:
+      <<: *hybrid-backend-environment
+      SDCC_BACKEND_NAME: monitor-1
+      SDCC_BACKEND_ROLE: monitor
+      SDCC_BACKEND_IP: 127.0.0.5
+      SDCC_SUPERVISOR_PROFILE: ${SDCC_MONITOR_PROFILE:-full-monitor}
+    command: ["/bin/sh", "-c", "exec supervisord -c /etc/sdcc/supervisor/${SDCC_SUPERVISOR_PROFILE:-full-monitor}.conf"]
     volumes:
       - *device-templates-volume
       - type: bind
