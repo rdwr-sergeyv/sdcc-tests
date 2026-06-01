@@ -10,6 +10,7 @@
     "dp-isolate-fixtures:list": "node tools/dp-isolate-fixtures/list.cjs",
     "dp-isolate-fixtures:restore": "node tools/dp-isolate-fixtures/restore.cjs",
     "dp-isolate-fixtures:restore-clean": "node tools/dp-isolate-fixtures/restore-clean.cjs",
+    "gen-supervisor-fragments": "node tools/gen-supervisor-fragments.cjs",
     "playwright": "playwright",
     "test:dp-isolate": "playwright test tests/dp-isolate",
     "test:dp-isolate:api": "playwright test tests/dp-isolate/dp-isolate-api.spec.cjs",
