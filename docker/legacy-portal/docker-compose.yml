@@ -255,7 +255,11 @@ services:
       # Use a loopback addr like the other local backends (docker-monitor=127.0.0.3,
       # docker-main=127.0.0.2) rather than squatting a real lab-subnet IP.
       SDCC_BACKEND_IP: 127.0.0.4
-    command: ["/bin/sh", "-c", "exec supervisord -c /etc/sdcc/supervisor/backend.conf"]
+      # Swappable supervisord profile (file under supervisor/): minimal-hybrid
+      # (cmd-executor + incident-manager) or full-hybrid (all backend services).
+      # Override from host env, e.g. SDCC_SUPERVISOR_PROFILE=full-hybrid.
+      SDCC_SUPERVISOR_PROFILE: ${SDCC_SUPERVISOR_PROFILE:-minimal-hybrid}
+    command: ["/bin/sh", "-c", "exec supervisord -c /etc/sdcc/supervisor/${SDCC_SUPERVISOR_PROFILE:-minimal-hybrid}.conf"]
     volumes:
       - *device-templates-volume
       - type: bind
