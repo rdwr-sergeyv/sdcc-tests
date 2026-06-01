@@ -35,7 +35,15 @@ RUN apt-get update \
         libxml2-dev \
         libxslt1-dev \
         netcat-openbsd \
-    && rm -rf /var/lib/apt/lists/*
+        snmp \
+        supervisor \
+    && rm -rf /var/lib/apt/lists/* \
+    # The SNMP poller (sc-poller) execs versioned net-snmp binaries by absolute path
+    # (sdcc.common.constants.SNMP{GET,WALK,BULKWALK} = /usr/bin/snmp*-5.9.4), which
+    # match a real SDCC appliance. Debian's "snmp" package installs the unsuffixed
+    # binaries, so symlink the expected versioned names. Queries use numeric OIDs
+    # with -Ofne, so no MIBs are required.
+    && for b in snmpget snmpwalk snmpbulkwalk; do ln -sf /usr/bin/"$b" /usr/bin/"$b"-5.9.4; done
 
 WORKDIR /opt/cddos-legacy
 
@@ -63,6 +71,25 @@ RUN sed -i 's/\r$//' /usr/local/bin/sdcc-portal-entrypoint \
     && pip install -e /opt/cddos-legacy/sdcc \
     && pip install -e /opt/cddos-legacy/sdcc-portal \
     && pip install 'setuptools<81'
+
+# Override the node 'sdcc' control script: the slim container has no systemd/upstart,
+# so delegate start/stop/restart/status to supervisord (which supervises this
+# backend's modules). The original is kept as sdcc.real for other subcommands.
+RUN if [ -e /usr/local/bin/sdcc ]; then mv /usr/local/bin/sdcc /usr/local/bin/sdcc.real; fi
+COPY <<'SDCC_SHIM' /usr/local/bin/sdcc
+#!/bin/bash
+# Lab override: map node service control to supervisord; fall through to sdcc.real.
+case "$1" in
+  start)   exec supervisorctl start all ;;
+  stop)    exec supervisorctl stop all ;;
+  restart) exec supervisorctl restart all ;;
+  status)  exec supervisorctl status ;;
+  *)
+    if [ -x /usr/local/bin/sdcc.real ]; then exec /usr/local/bin/sdcc.real "$@"; fi
+    echo "Usage: sdcc {start|stop|restart|status}"; exit 1 ;;
+esac
+SDCC_SHIM
+RUN chmod +x /usr/local/bin/sdcc
 
 WORKDIR /opt/cddos-legacy/sdcc-portal/sdcc_portal
 

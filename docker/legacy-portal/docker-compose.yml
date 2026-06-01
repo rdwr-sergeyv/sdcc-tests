@@ -58,13 +58,23 @@ x-hybrid-backend-environment: &hybrid-backend-environment
 #
 #   Standalone:
 #     internal-mongo — mongo only (use with an external portal instance)
+#     lab            — all-in-one: execute-mode portal + mongo + the full backend
+#                      stack (cmd-executor, incident-manager, and every
+#                      poller/aggregator). Equivalent to "execute + full" in one
+#                      token; this is the Makefile default for a capable lab.
 
+# "lab" is an all-in-one convenience profile (see the comment block above): it
+# brings up the execute-mode portal + mongo + the entire backend stack, so a
+# single `--profile lab` starts a fully functional lab. It is added alongside
+# the existing task-type/service-scope profiles, which still work as before.
 x-full-profile: &full-profile
   - full
+  - lab
 
 x-minimal-and-full-profiles: &minimal-and-full-profiles
   - minimal
   - full
+  - lab
 
 x-backend-service: &backend-service
   build: *portal-build
@@ -80,6 +90,7 @@ services:
       - internal-mongo
       - minimal
       - full
+      - lab
     ports:
       - "${LEGACY_PORTAL_MONGO_PORT:-27018}:27017"
     volumes:
@@ -96,6 +107,7 @@ services:
     <<: *portal-service-base
     profiles:
       - execute
+      - lab
     environment: *portal-environment
 
   portal-build:
@@ -227,6 +239,29 @@ services:
     profiles: *minimal-and-full-profiles
     environment: *hybrid-backend-environment
     command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-incident-manager.lck && exec sdcc-incident-manager.py --debug true"]
+
+  # Supervised backend node: runs multiple sdcc modules under supervisord in one
+  # container (PLAN item 1: cmd-executor + incident-manager only, role=hybrid).
+  # Registers as backend "hybrid-1"; no SCs assigned yet, so it sits idle.
+  backend-hybrid:
+    <<: *backend-service
+    environment:
+      <<: *hybrid-backend-environment
+      SDCC_BACKEND_NAME: hybrid-1
+      SDCC_BACKEND_ROLE: hybrid
+      # Backends.ip_addr has a unique index, so each backend container needs a
+      # distinct IP. This value is only used by SdccServiceManager for SSH
+      # orchestration (not used in this container lab), so it's a placeholder.
+      # Use a loopback addr like the other local backends (docker-monitor=127.0.0.3,
+      # docker-main=127.0.0.2) rather than squatting a real lab-subnet IP.
+      SDCC_BACKEND_IP: 127.0.0.4
+    command: ["/bin/sh", "-c", "exec supervisord -c /etc/sdcc/supervisor/backend.conf"]
+    volumes:
+      - *device-templates-volume
+      - type: bind
+        source: ./supervisor
+        target: /etc/sdcc/supervisor
+        read_only: true
 
   netflow-manager:
     <<: *backend-service
