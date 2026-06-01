@@ -1,7 +1,7 @@
 {
   "name": "demo-with-pool-dpx",
-  "description": "NEW-LAB with LAB3-DPX-7 (10.14.194.107, v10.13.0.0, model MX) as second live attack-zone DPX; LAB-UHT-4 blocked; jdc_site_1 + jdc_asset_1 (50.50.1.0/24) under John Doe Corp AttackZone",
-  "createdAt": "2026-06-01T06:18:47.208Z",
+  "description": "NEW-LAB: LAB3-DPX-7 (10.14.194.107, v10.13, MX) 2nd live attack-zone DPX; LAB-UHT-4 blocked; backend repointed to docker hybrid worker; jdc_site_1 + jdc_asset_1 (50.50.1.0/24, off-cloud) under John Doe Corp AttackZone. Clean starting state, no incidents/tasks.",
+  "createdAt": "2026-06-01T08:15:11.920Z",
   "database": "sdcc",
   "container": "legacy-portal-mongo-1",
   "archive": "sdcc.archive.gz",
