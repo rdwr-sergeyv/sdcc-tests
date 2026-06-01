@@ -1,7 +1,7 @@
 {
   "name": "demo-with-pool-dpx",
-  "description": "NEW-LAB with LAB3-DPX-7 (10.14.194.107, v10.13.0.0, model MX) as second live attack-zone DPX; LAB-UHT-4 blocked (op_status=2); LAB3-DPX-7 unblocked (op_status=1)",
-  "createdAt": "2026-05-31T15:56:15.094Z",
+  "description": "NEW-LAB with LAB3-DPX-7 (10.14.194.107, v10.13.0.0, model MX) as second live attack-zone DPX; LAB-UHT-4 blocked; jdc_site_1 + jdc_asset_1 (50.50.1.0/24) under John Doe Corp AttackZone",
+  "createdAt": "2026-06-01T06:18:47.208Z",
   "database": "sdcc",
   "container": "legacy-portal-mongo-1",
   "archive": "sdcc.archive.gz",
