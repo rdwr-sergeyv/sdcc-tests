@@ -25,11 +25,6 @@ const elements = {
   history: document.querySelector('#history'),
   clearHistory: document.querySelector('#clearHistory'),
   actionButtons: Array.from(document.querySelectorAll('[data-action]')),
-  demoGuideMode: document.querySelector('#demoGuideMode'),
-  demoGuideIntro: document.querySelector('#demoGuideIntro'),
-  demoAuto: document.querySelector('#demoAuto'),
-  demoUser: document.querySelector('#demoUser'),
-  demoExpected: document.querySelector('#demoExpected'),
 };
 
 elements.username.value = localStorage.getItem('dpIsolateUsername') || '';
@@ -115,32 +110,6 @@ function setBadge(element, text, tone = 'neutral') {
 function pretty(value) {
   return JSON.stringify(value, null, 2);
 }
-
-function renderList(element, items) {
-  element.innerHTML = '';
-  for (const item of items) {
-    const li = document.createElement('li');
-    li.textContent = item;
-    element.appendChild(li);
-  }
-}
-
-function setDemoGuide(step) {
-  const guide = {
-    mode: 'Demo',
-    intro: step.title || 'Backend build-only walkthrough',
-    auto: step.auto || [],
-    user: step.user || [],
-    expected: step.expected || [],
-  };
-  elements.demoGuideIntro.textContent = guide.intro;
-  setBadge(elements.demoGuideMode, guide.mode, 'good');
-  renderList(elements.demoAuto, guide.auto);
-  renderList(elements.demoUser, guide.user);
-  renderList(elements.demoExpected, guide.expected);
-}
-
-window.dpIsolateSetDemoGuide = setDemoGuide;
 
 function parseBody(text) {
   if (!text) return null;

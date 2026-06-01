@@ -170,31 +170,6 @@ button.secondary:hover {
   margin: 0;
 }
 
-.demo-guide {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.guide-column {
-  min-width: 0;
-  border-left: 3px solid #d8e0e7;
-  padding-left: 12px;
-}
-
-.guide-column ul {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding-left: 18px;
-  color: #3b4652;
-  line-height: 1.35;
-}
-
-.guide-column li::marker {
-  color: #24699f;
-}
-
 .asset-list {
   max-height: 280px;
   overflow: auto;
@@ -448,10 +423,6 @@ pre {
   }
 
   .history-row {
-    grid-template-columns: 1fr;
-  }
-
-  .demo-guide {
     grid-template-columns: 1fr;
   }
 

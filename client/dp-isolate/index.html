@@ -30,41 +30,6 @@
         </form>
       </section>
 
-      <section class="panel" aria-labelledby="demoGuideTitle">
-        <div class="panel-header compact">
-          <div>
-            <h2 id="demoGuideTitle">Demo Guide</h2>
-            <p id="demoGuideIntro">Run <code>make demo-playwright</code> for the backend build-only walkthrough.</p>
-          </div>
-          <span id="demoGuideMode" class="badge">Manual</span>
-        </div>
-        <div class="demo-guide">
-          <div class="guide-column">
-            <h3>Automated</h3>
-            <ul id="demoAuto">
-              <li>Login uses configured credentials when auto-login is enabled.</li>
-              <li>Asset selection and endpoint clicks are driven by the demo script.</li>
-              <li>Fixtures are restored between scenarios.</li>
-            </ul>
-          </div>
-          <div class="guide-column">
-            <h3>User</h3>
-            <ul id="demoUser">
-              <li>Press Enter in the demo console to advance each checkpoint.</li>
-              <li>Confirm the selected asset and explain the state shown on screen.</li>
-              <li>Review the response and task snapshot printed by the script.</li>
-            </ul>
-          </div>
-          <div class="guide-column">
-            <h3>Expected</h3>
-            <ul id="demoExpected">
-              <li>Build-only backend mode creates and completes task work without device execution.</li>
-              <li>Rejected cases return clear HTTP errors and leave no isolation task work behind.</li>
-              <li>No-op cases return HTTP 200 without duplicate task creation.</li>
-            </ul>
-          </div>
-        </div>
-      </section>
 
       <section class="panel">
         <div class="panel-header compact">
