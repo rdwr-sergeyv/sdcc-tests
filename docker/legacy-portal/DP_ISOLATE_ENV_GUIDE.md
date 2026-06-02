@@ -108,7 +108,7 @@ workspace/
     ├── entrypoint.sh
     ├── sdcc.conf
     └── fixtures/
-        └── ready-for-tests/
+        └── default/
             └── sdcc.archive.gz
 ```
 

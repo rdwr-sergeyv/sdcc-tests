@@ -1,5 +1,5 @@
 {
-  "name": "ready-for-tests",
+  "name": "default",
   "description": "with-attack-zone-dps, SC backends fixed (NEW-LAB→docker, SCRUBBING_1→be-monitor), runtime/history collections omitted",
   "createdAt": "2026-05-31T11:49:12.151Z",
   "database": "sdcc",

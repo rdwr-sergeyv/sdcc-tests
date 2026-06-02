@@ -1,9 +1,9 @@
 *
 !.gitignore
 !README.md
-!ready-for-tests/
-!ready-for-tests/manifest.json
-!ready-for-tests/sdcc.archive.gz
+!default/
+!default/manifest.json
+!default/sdcc.archive.gz
 !demo-with-pool-dpx/
 !demo-with-pool-dpx/manifest.json
 !demo-with-pool-dpx/sdcc.archive.gz

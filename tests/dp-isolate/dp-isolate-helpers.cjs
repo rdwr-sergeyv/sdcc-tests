@@ -51,7 +51,7 @@ function restoreReadyForTests() {
   const config = env();
   run(process.execPath, [
     'tools/dp-isolate-fixtures/restore.cjs',
-    'ready-for-tests',
+    'default',
     '--yes',
     '--container',
     config.LEGACY_PORTAL_MONGO_CONTAINER || 'legacy-portal-mongo-1',

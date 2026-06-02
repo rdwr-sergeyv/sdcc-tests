@@ -141,7 +141,7 @@ function help() {
   make dp-isolate:rebuild      Rebuild/recreate portal, restart client, open browser
   make dp-isolate:stop         Stop client and portal
   make dp-isolate:status       Show portal/client status
-  make dp-isolate:restore-ready Restore the ready-for-tests DP Isolate fixture
+  make dp-isolate:restore-ready Restore the default DP Isolate fixture
   make dp-isolate:task-snapshot Show isolation task/log summary for ASSET_ID
   make dp-isolate:device-password Decrypt a management device password field for SC/DP
   make dp-isolate:vision-password Decrypt a Vision database password for SC/VISION

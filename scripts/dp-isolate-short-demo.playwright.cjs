@@ -223,7 +223,7 @@ async function main() {
           title: backend ? 'Backend build-only demo startup' : 'Short UI-only demo startup',
           auto: [
             backend ? 'Starts Mongo, portal, incident-manager, and cmd-executor.' : 'Starts Mongo and portal while backend workers stay stopped.',
-            'Restores the ready-for-tests fixture.',
+            'Restores the default fixture.',
             'Starts the Vite DP Isolate client and opens this page.',
           ],
           user: [

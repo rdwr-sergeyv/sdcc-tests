@@ -70,7 +70,7 @@ npm run dp-isolate-fixtures:restore-clean -- --yes
 Restoring a fixture runs `mongorestore --drop` against the configured database,
 so treat it as a destructive replacement of the local lab DB state. Snapshot
 archives are stored under `fixtures/dp-isolate/` and ignored by git, except for
-the checked-in `ready-for-tests` lab fixture.
+the checked-in `default` lab fixture.
 
 Use `dp-isolate-fixtures:restore-clean` when the current local DB is dirty and
 must not be captured. It restores from `mongodb://10.20.4.110:27017/sdcc` by
