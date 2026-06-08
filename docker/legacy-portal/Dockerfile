@@ -72,6 +72,18 @@ RUN sed -i 's/\r$//' /usr/local/bin/sdcc-portal-entrypoint \
     && pip install -e /opt/cddos-legacy/sdcc-portal \
     && pip install 'setuptools<81'
 
+# Lab-only dependency pin. Do NOT add this to the shared sdcc/ and sdcc-portal/
+# requirements.txt — those are prod's and must stay untouched. httplib2 is an
+# unpinned transitive dependency (pulled by google-api-python-client / oauth2client
+# / google-auth-httplib2), so a fresh build floats it to a newer release whose
+# auth.py calls pyparsing.DelimitedList. That symbol does not exist in the pinned
+# pyparsing==3.0.9, so `import httplib2` raises AttributeError, which in turn breaks
+# `import sdcc.management.executor.commands` and leaves import_policy() undefined —
+# silently disabling all Policy Editor calls (no sdcc-policy-editor.log is created).
+# Prod runs httplib2==0.22.0 (which uses the lowercase pp.delimitedList); match it
+# here, as the final pip step so the editable installs above cannot override it.
+RUN pip install 'httplib2==0.22.0'
+
 # Override the node 'sdcc' control script: the slim container has no systemd/upstart,
 # so delegate start/stop/restart/status to supervisord (which supervises this
 # backend's modules). The original is kept as sdcc.real for other subcommands.
