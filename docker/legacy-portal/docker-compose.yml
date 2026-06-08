@@ -47,8 +47,8 @@ x-hybrid-backend-environment: &hybrid-backend-environment
 #     build-only — SDCC_TASK_TYPE=build; portal creates task records in the DB
 #
 #   Service scope (backend services):
-#     minimal    — mongo + cmd-executor + incident-manager
-#     full       — mongo + all backend services
+#     minimal    — mongo + cmd-executor + incident-manager (isolated containers)
+#     full       — mongo + all backend services (isolated containers)
 #
 #   Examples:
 #     --profile execute   --profile minimal
@@ -58,23 +58,22 @@ x-hybrid-backend-environment: &hybrid-backend-environment
 #
 #   Standalone:
 #     internal-mongo — mongo only (use with an external portal instance)
-#     lab            — all-in-one: execute-mode portal + mongo + the full backend
-#                      stack (cmd-executor, incident-manager, and every
-#                      poller/aggregator). Equivalent to "execute + full" in one
-#                      token; this is the Makefile default for a capable lab.
+#     lab            — supervisord mode: execute-mode portal + mongo +
+#                      backend-hybrid + backend-monitor (each runs multiple
+#                      backend modules under supervisord). This is the Makefile
+#                      default. Unlike "execute,full", no per-module containers
+#                      are started; the two supervised nodes cover all roles.
 
-# "lab" is an all-in-one convenience profile (see the comment block above): it
-# brings up the execute-mode portal + mongo + the entire backend stack, so a
-# single `--profile lab` starts a fully functional lab. It is added alongside
-# the existing task-type/service-scope profiles, which still work as before.
+# Individual backend service containers are activated by "full" (or "minimal"
+# for the core two). The "lab" profile is reserved for the supervisord-based
+# backend nodes (backend-hybrid, backend-monitor) which run multiple modules
+# in one container — mutually exclusive with the isolated "full" scope.
 x-full-profile: &full-profile
   - full
-  - lab
 
 x-minimal-and-full-profiles: &minimal-and-full-profiles
   - minimal
   - full
-  - lab
 
 x-backend-service: &backend-service
   build: *portal-build
@@ -245,6 +244,8 @@ services:
   # Registers as backend "hybrid-1"; no SCs assigned yet, so it sits idle.
   backend-hybrid:
     <<: *backend-service
+    profiles:
+      - lab
     environment:
       <<: *hybrid-backend-environment
       SDCC_BACKEND_NAME: hybrid-1
@@ -259,7 +260,11 @@ services:
       # (cmd-executor + incident-manager) or full-hybrid (all backend services).
       # Per-backend host override, e.g. SDCC_HYBRID_PROFILE=full-hybrid.
       SDCC_SUPERVISOR_PROFILE: ${SDCC_HYBRID_PROFILE:-minimal-hybrid}
-    command: ["/bin/sh", "-c", "exec supervisord -c /etc/sdcc/supervisor/${SDCC_SUPERVISOR_PROFILE:-minimal-hybrid}.conf"]
+      # NOTE: the command below interpolates SDCC_HYBRID_PROFILE directly, NOT
+      # SDCC_SUPERVISOR_PROFILE. Compose ${...} interpolation resolves against the
+      # host shell / .env only — it cannot see a service's own environment: block,
+      # so ${SDCC_SUPERVISOR_PROFILE} would always fall back to the default here.
+    command: ["/bin/sh", "-c", "exec supervisord -c /etc/sdcc/supervisor/${SDCC_HYBRID_PROFILE:-minimal-hybrid}.conf"]
     volumes:
       - *device-templates-volume
       - type: bind
@@ -272,13 +277,17 @@ services:
   # so its pollers sit idle. Per-backend host override: SDCC_MONITOR_PROFILE.
   backend-monitor:
     <<: *backend-service
+    profiles:
+      - lab
     environment:
       <<: *hybrid-backend-environment
       SDCC_BACKEND_NAME: monitor-1
       SDCC_BACKEND_ROLE: monitor
       SDCC_BACKEND_IP: 127.0.0.5
       SDCC_SUPERVISOR_PROFILE: ${SDCC_MONITOR_PROFILE:-full-monitor}
-    command: ["/bin/sh", "-c", "exec supervisord -c /etc/sdcc/supervisor/${SDCC_SUPERVISOR_PROFILE:-full-monitor}.conf"]
+      # See backend-hybrid above: interpolate SDCC_MONITOR_PROFILE directly, not
+      # the service-internal SDCC_SUPERVISOR_PROFILE (invisible to Compose ${...}).
+    command: ["/bin/sh", "-c", "exec supervisord -c /etc/sdcc/supervisor/${SDCC_MONITOR_PROFILE:-full-monitor}.conf"]
     volumes:
       - *device-templates-volume
       - type: bind

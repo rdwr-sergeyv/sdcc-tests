@@ -211,14 +211,29 @@ portal-restart:
 portal-rebuild:
 	@node tools/dp-isolate-dev.cjs portal-rebuild
 
+portal-up-build:
+	@node tools/dp-isolate-dev.cjs portal-up-build
+
 portal-down:
 	@node tools/dp-isolate-dev.cjs portal-down
 
 portal-logs:
 	@node tools/dp-isolate-dev.cjs portal-logs
 
+stack-up:
+	@SDCC_HYBRID_PROFILE="$(SDCC_HYBRID_PROFILE)" SDCC_MONITOR_PROFILE="$(SDCC_MONITOR_PROFILE)" node tools/dp-isolate-dev.cjs stack-up
+
+stack-restart:
+	@SDCC_HYBRID_PROFILE="$(SDCC_HYBRID_PROFILE)" SDCC_MONITOR_PROFILE="$(SDCC_MONITOR_PROFILE)" node tools/dp-isolate-dev.cjs stack-restart
+
+stack-up-build:
+	@SDCC_HYBRID_PROFILE="$(SDCC_HYBRID_PROFILE)" SDCC_MONITOR_PROFILE="$(SDCC_MONITOR_PROFILE)" node tools/dp-isolate-dev.cjs stack-up-build
+
+stack-rebuild:
+	@SDCC_HYBRID_PROFILE="$(SDCC_HYBRID_PROFILE)" SDCC_MONITOR_PROFILE="$(SDCC_MONITOR_PROFILE)" node tools/dp-isolate-dev.cjs stack-rebuild
+
 portal-license-backends:
-	@node tools/dp-isolate-dev.cjs portal-license-backends
+	@DP_ISOLATE_COMPOSE_PROFILE="$(DP_ISOLATE_COMPOSE_PROFILE)" node tools/dp-isolate-dev.cjs portal-license-backends
 
 client-up:
 	@node tools/dp-isolate-dev.cjs client-up
