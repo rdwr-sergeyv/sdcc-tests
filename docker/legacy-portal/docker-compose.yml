@@ -241,14 +241,14 @@ services:
 
   # Supervised backend node: runs multiple sdcc modules under supervisord in one
   # container (PLAN item 1: cmd-executor + incident-manager only, role=hybrid).
-  # Registers as backend "hybrid-1"; no SCs assigned yet, so it sits idle.
+  # Registers as backend "docker"; no SCs assigned yet, so it sits idle.
   backend-hybrid:
     <<: *backend-service
     profiles:
       - lab
     environment:
       <<: *hybrid-backend-environment
-      SDCC_BACKEND_NAME: hybrid-1
+      SDCC_BACKEND_NAME: docker
       SDCC_BACKEND_ROLE: hybrid
       # Backends.ip_addr has a unique index, so each backend container needs a
       # distinct IP. This value is only used by SdccServiceManager for SSH
@@ -272,7 +272,7 @@ services:
         target: /etc/sdcc/supervisor
         read_only: true
 
-  # Supervised MONITOR backend node (PLAN item 3). Registers as backend "monitor-1";
+  # Supervised MONITOR backend node (PLAN item 3). Registers as backend "docker-monitor";
   # runs the poller-role programs only (full-monitor profile). No SCs assigned yet,
   # so its pollers sit idle. Per-backend host override: SDCC_MONITOR_PROFILE.
   backend-monitor:
@@ -281,7 +281,7 @@ services:
       - lab
     environment:
       <<: *hybrid-backend-environment
-      SDCC_BACKEND_NAME: monitor-1
+      SDCC_BACKEND_NAME: docker-monitor
       SDCC_BACKEND_ROLE: monitor
       SDCC_BACKEND_IP: 127.0.0.5
       SDCC_SUPERVISOR_PROFILE: ${SDCC_MONITOR_PROFILE:-full-monitor}
