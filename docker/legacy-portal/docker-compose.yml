@@ -1,3 +1,11 @@
+# ── Canonical backend node names — SINGLE SOURCE OF TRUTH ──
+# These two anchors are the only place backend names are defined. Every service
+# below references them via *hybrid-backend-name / *monitor-backend-name; do not
+# hardcode names anywhere else. Override per-host with the env vars if needed.
+x-backend-names:
+  hybrid:  &hybrid-backend-name  ${SDCC_HYBRID_BACKEND_NAME:-docker}
+  monitor: &monitor-backend-name ${SDCC_MONITOR_BACKEND_NAME:-docker-monitor}
+
 x-portal-build: &portal-build
   context: .
   dockerfile: Dockerfile
@@ -21,7 +29,7 @@ x-common-environment: &common-environment
 
 x-portal-environment: &portal-environment
   <<: *common-environment
-  SDCC_BACKEND_NAME: ${SDCC_BACKEND_NAME:-docker}
+  SDCC_BACKEND_NAME: *hybrid-backend-name
   SDCC_BACKEND_IP: ${SDCC_BACKEND_IP:-127.0.0.1}
   SDCC_BACKEND_ROLE: ${SDCC_BACKEND_ROLE:-hybrid}
   SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-provisioning}
@@ -35,7 +43,9 @@ x-portal-service-base: &portal-service-base
 
 x-hybrid-backend-environment: &hybrid-backend-environment
   <<: *common-environment
-  SDCC_BACKEND_NAME: ${SDCC_BACKEND_NAME:-docker}
+  # SDCC_BACKEND_NAME is intentionally NOT set here — this anchor is shared by both
+  # backend-hybrid and backend-monitor, which each set their own name from the
+  # canonical *hybrid-backend-name / *monitor-backend-name anchors at the top.
   SDCC_BACKEND_IP: ${SDCC_BACKEND_IP:-10.20.4.20}
   SDCC_BACKEND_ROLE: hybrid
   SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-provisioning}
@@ -248,7 +258,7 @@ services:
       - lab
     environment:
       <<: *hybrid-backend-environment
-      SDCC_BACKEND_NAME: docker
+      SDCC_BACKEND_NAME: *hybrid-backend-name
       SDCC_BACKEND_ROLE: hybrid
       # Backends.ip_addr has a unique index, so each backend container needs a
       # distinct IP. This value is only used by SdccServiceManager for SSH
@@ -281,7 +291,7 @@ services:
       - lab
     environment:
       <<: *hybrid-backend-environment
-      SDCC_BACKEND_NAME: docker-monitor
+      SDCC_BACKEND_NAME: *monitor-backend-name
       SDCC_BACKEND_ROLE: monitor
       SDCC_BACKEND_IP: 127.0.0.5
       SDCC_SUPERVISOR_PROFILE: ${SDCC_MONITOR_PROFILE:-full-monitor}

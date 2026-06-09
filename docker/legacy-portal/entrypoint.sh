@@ -100,24 +100,24 @@ if raw_db.GlobalSettings.find_one({"name": "branding"}) is None:
 backend_name = os.environ.get("SDCC_BACKEND_NAME", "docker")
 backend_role = os.environ.get("SDCC_BACKEND_ROLE", "hybrid")
 backend_ip = os.environ.get("SDCC_BACKEND_IP", "127.0.0.1")
-raw_db.Backends.update_one(
-    {"name": backend_name},
-    {
-        "$setOnInsert": {
-            "name": backend_name,
-            "ssh_user": "sdcc",
-            "ssh_passwd": "",
-            "licensed_modules": {},
-            "replicate_backup": False,
-        },
-        "$set": {
-            "ip_addr": backend_ip,
-            "role": backend_role,
-            "active": True,
-        },
-    },
-    upsert=True,
-)
+# Register the backend ONLY if one with this name does not already exist. We never
+# blindly overwrite an existing record: re-running the bootstrap must not rewrite
+# its ip_addr/role (rewriting ip_addr would also collide with the unique ip_addr_1
+# index whenever another backend already owns the target IP).
+if raw_db.Backends.find_one({"name": backend_name}) is None:
+    raw_db.Backends.insert_one({
+        "name": backend_name,
+        "ssh_user": "sdcc",
+        "ssh_passwd": "",
+        "licensed_modules": {},
+        "replicate_backup": False,
+        "ip_addr": backend_ip,
+        "role": backend_role,
+        "active": True,
+    })
+    print(f"Registered backend {backend_name!r} (ip={backend_ip}, role={backend_role}).")
+else:
+    print(f"Backend {backend_name!r} already registered; leaving existing record untouched.")
 PY
 fi
 
