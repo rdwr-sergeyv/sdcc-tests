@@ -8,15 +8,16 @@ const dbName = process.env.SDCC_MONGO_DB || 'sdcc';
 const restoreMaxPolicies = Number(process.env.DP_ISOLATE_POLICY_CAPACITY_RESTORE_MAX || 200);
 const restoreNumPolicies = Number(process.env.DP_ISOLATE_POLICY_CAPACITY_RESTORE_USED || 1);
 
-if (!['min', 'restore'].includes(mode)) {
+if (!['min', 'restore', 'set'].includes(mode)) {
   console.error([
-    'Usage: node tools/dp-isolate-policy-capacity.cjs <min|restore>',
+    'Usage: node tools/dp-isolate-policy-capacity.cjs <min|restore|set> [args]',
     '',
-    'min      Set primary SC Attack Zone DefensePros to max_policies=1 and num_policies=1.',
-    'restore  Restore primary SC Attack Zone DefensePros to fixture defaults: max_policies=200 and num_policies=1.',
+    'min                Set primary SC Attack Zone DefensePros to max_policies=1 and num_policies=1.',
+    'restore            Restore primary SC Attack Zone DefensePros to fixture defaults: max_policies=200 and num_policies=1.',
+    'set <SC> <DP> <N>  Set one named DefensePro (DP) on the named ScrubbingCenter (SC) to max_policies=N.',
     '',
     'Environment:',
-    '  DP_ISOLATE_POLICY_CAPACITY_SC_ID       ScrubbingCenter ObjectId, default 5e08d6bc2cbdfd701f0c2936',
+    '  DP_ISOLATE_POLICY_CAPACITY_SC_ID       ScrubbingCenter ObjectId (min/restore), default 5e08d6bc2cbdfd701f0c2936',
     '  DP_ISOLATE_POLICY_CAPACITY_RESTORE_MAX Restore max_policies, default 200',
     '  DP_ISOLATE_POLICY_CAPACITY_RESTORE_USED Restore num_policies, default 1',
     '  LEGACY_PORTAL_MONGO_CONTAINER          Mongo container, default legacy-portal-mongo-1',
@@ -25,10 +26,58 @@ if (!['min', 'restore'].includes(mode)) {
   process.exit(1);
 }
 
+// set mode targets a single named DP on a named SC: `set <SC name> <DP name> <N>`
+let setScName, setDpName, setN;
+if (mode === 'set') {
+  setScName = process.argv[3];
+  setDpName = process.argv[4];
+  setN = Number(process.argv[5]);
+  if (!setScName || !setDpName) {
+    console.error('set mode requires: set <SC name> <DP name> <N>');
+    process.exit(1);
+  }
+  if (!Number.isInteger(setN) || setN < 1) {
+    console.error(`Invalid capacity N: '${process.argv[5]}' (must be a positive integer)`);
+    process.exit(1);
+  }
+}
+
 const targetMaxPolicies = mode === 'min' ? 1 : restoreMaxPolicies;
 const targetNumPolicies = mode === 'min' ? 1 : restoreNumPolicies;
 
-const script = `
+// set mode: update a single named DefensePro on a named ScrubbingCenter.
+const setScript = `
+const sc = db.ScrubbingCenters.findOne({ name: ${JSON.stringify(setScName || '')} });
+if (!sc) {
+  throw new Error('ScrubbingCenter ' + ${JSON.stringify(setScName || '')} + ' was not found');
+}
+
+const dp = (sc.management_devices || []).find(
+  (device) => device.type === 'radware-defensepro' && device.name === ${JSON.stringify(setDpName || '')}
+);
+if (!dp) {
+  throw new Error('DefensePro ' + ${JSON.stringify(setDpName || '')} + ' was not found on ScrubbingCenter ' + ${JSON.stringify(setScName || '')});
+}
+
+const res = db.ScrubbingCenters.updateOne(
+  { _id: sc._id },
+  { $set: { 'management_devices.$[dp].max_policies': ${setN} } },
+  { arrayFilters: [{ 'dp.name': ${JSON.stringify(setDpName || '')}, 'dp.type': 'radware-defensepro' }] }
+);
+
+JSON.stringify({
+  mode: 'set',
+  scrubbingCenter: String(sc._id),
+  scName: ${JSON.stringify(setScName || '')},
+  defensePro: ${JSON.stringify(setDpName || '')},
+  dpUniqueId: String(dp.unique_id),
+  max_policies: ${setN},
+  matched: res.matchedCount,
+  modified: res.modifiedCount,
+});
+`;
+
+const attackZoneScript = `
 const attackZone = db.DPZones.findOne({ name: 'attack_zone' });
 if (!attackZone) {
   throw new Error('attack_zone DP zone was not found');
@@ -69,6 +118,8 @@ JSON.stringify({
   num_policies: ${targetNumPolicies},
 });
 `;
+
+const script = mode === 'set' ? setScript : attackZoneScript;
 
 const result = spawnSync(
   'docker',
