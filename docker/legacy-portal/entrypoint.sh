@@ -46,6 +46,9 @@ backend:
   name: ${SDCC_BACKEND_NAME}
   ip_addr: ${SDCC_BACKEND_IP}
   role: ${SDCC_BACKEND_ROLE}
+  workers:
+    sdcc-sc-poller:
+      collect_dp_policies_stats: true
 EOF
 
 if [ "${SDCC_DOCKER_BOOTSTRAP_DB:-1}" = "1" ]; then
