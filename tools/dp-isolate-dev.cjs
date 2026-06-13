@@ -78,6 +78,14 @@ const backendServices = [
   "waf-ssl-protection-aggregator",
 ];
 
+// The supervised lab backend nodes. Mutually exclusive with the isolated
+// per-container backends above: the "lab" profile runs these two supervisord
+// nodes (each hosting many modules), while "full"/"minimal" run one container
+// per module. Both sets carry restart: unless-stopped, so switching scope
+// without tearing down the previous scope used to leave a doubled stack running
+// (every module twice). pruneConflictingBackends() below prevents that.
+const labBackendNodes = ["backend-hybrid", "backend-monitor"];
+
 // All profiles defined in docker-compose.yml — pass all of them to `down` so
 // that profile-gated containers are stopped regardless of which profile was
 // active when the stack was started.
@@ -266,6 +274,40 @@ async function portalUp() {
   await waitForUrl(portalUrl, 120000, "legacy portal");
 }
 
+// Backend run modes are two mutually-exclusive scopes:
+//   - "lab"            → supervised nodes (labBackendNodes)
+//   - "full"/"minimal" → isolated per-container backends (backendServices)
+// Given the active profiles, return the backend containers from the OTHER scope
+// that must be removed before bringing up the requested one. Returns empty when
+// no backend scope is selected, or the (ambiguous) case where both are present.
+function conflictingBackendScope(activeProfiles) {
+  const labMode = activeProfiles.includes("lab");
+  const isolatedMode =
+    activeProfiles.includes("full") || activeProfiles.includes("minimal");
+  if (labMode === isolatedMode) return null; // none selected, or ambiguous → skip
+  return labMode
+    ? { profiles: ["full", "minimal"], services: backendServices, label: "isolated per-container backend" }
+    : { profiles: ["lab"], services: labBackendNodes, label: "supervised backend node" };
+}
+
+// Tear down backend containers left over from the other (mutually-exclusive)
+// backend scope, so a profile switch (e.g. full → lab) can't leave a doubled
+// stack running. No-op when nothing from the conflicting scope is present.
+async function pruneConflictingBackends(defaults) {
+  const active = composeProfiles(defaults);
+  const conflict = conflictingBackendScope(active);
+  if (!conflict) return;
+  const profileArgs = conflict.profiles.flatMap((p) => ["--profile", p]);
+  const ps = dockerCompose([...profileArgs, "ps", "-aq", ...conflict.services]);
+  const ids = String(ps.stdout || "").trim();
+  if (ps.status !== 0 || !ids) return; // nothing from the other scope is around
+  const count = ids.split(/\r?\n/).filter(Boolean).length;
+  console.log(
+    `Removing ${count} stale ${conflict.label} container(s) left from a previous profile scope...`,
+  );
+  await runDockerComposeLive([...profileArgs, "rm", "-fsv", ...conflict.services]);
+}
+
 // Full lab stack: all services according to DP_ISOLATE_COMPOSE_PROFILE.
 async function stackUp() {
   const profileArgs = composeProfileArgs(["execute", "minimal"]);
@@ -275,6 +317,7 @@ async function stackUp() {
   );
   console.log("Checking Docker CLI...");
   ensureCommand("docker", ["--version"], "Docker CLI is required.");
+  await pruneConflictingBackends(["execute", "minimal"]);
   await runDockerComposeLive(args);
   await waitForUrl(portalUrl, 120000, "legacy portal");
 }
@@ -349,6 +392,7 @@ async function stackRestart() {
     await stackUp();
     return;
   }
+  await pruneConflictingBackends(["execute", "minimal"]);
   await runDockerComposeLive(args);
   await waitForUrl(portalUrl, 120000, "legacy portal");
 }
@@ -444,6 +488,7 @@ async function stackUpBuild() {
   );
   console.log("Checking Docker CLI...");
   ensureCommand("docker", ["--version"], "Docker CLI is required.");
+  await pruneConflictingBackends(["execute", "minimal"]);
   await runDockerComposeLive(args);
   await waitForUrl(portalUrl, 120000, "legacy portal");
 }
