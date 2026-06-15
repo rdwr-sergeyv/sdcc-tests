@@ -117,7 +117,25 @@ services:
     profiles:
       - execute
       - lab
-    environment: *portal-environment
+    environment:
+      <<: *portal-environment
+      # Swappable supervisord profile (file under supervisor/). Only one profile
+      # exists for the portal today ("portal"); the var mirrors the backend nodes'
+      # SDCC_HYBRID_PROFILE / SDCC_MONITOR_PROFILE for symmetry and host override.
+      SDCC_SUPERVISOR_PROFILE: ${SDCC_PORTAL_PROFILE:-portal}
+    # Run the Django dev server under supervisord (like the backend nodes) so the
+    # portal's Python code can be reloaded with `supervisorctl restart portal` after
+    # a `docker cp`, instead of a full image rebuild. The ENTRYPOINT still runs first
+    # (writes sdcc.conf + bootstraps the DB), then execs this command — same pattern
+    # as backend-hybrid / backend-monitor. ${...} resolves against the host/.env only
+    # (not the service environment block), so interpolate SDCC_PORTAL_PROFILE directly.
+    command: ["/bin/sh", "-c", "exec supervisord -c /etc/sdcc/supervisor/${SDCC_PORTAL_PROFILE:-portal}.conf"]
+    volumes:
+      - *device-templates-volume
+      - type: bind
+        source: ./supervisor
+        target: /etc/sdcc/supervisor
+        read_only: true
 
   portal-build:
     <<: *portal-service-base
