@@ -6,7 +6,7 @@ KAFKA_PRODUCER_UI_PORT ?= 3000
 KAFKA_PRODUCER_UI_PID := .tmp/kafka-securityevent-producer-ui.pid
 KAFKA_PRODUCER_UI_LOG := logs/kafka-securityevent-producer-ui.log
 
-.PHONY: help run-dp-isolate run-dp-isolate-build-only run-dp-isolate-ui-only demo-short demo-playwright demo-short-playwright demo-short-resume test-dp-isolate test-dp-isolate-api test-dp-isolate-api-build-only test-dp-isolate-api-short test-dp-isolate-smoke dp-isolate dp-isolate\:start dp-isolate\:build-only dp-isolate\:ui-only dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status dp-isolate\:restore-ready dp-isolate\:patch-pending-task-deps dp-isolate\:task-snapshot dp-isolate\:device-password dp-isolate\:vision-password dp-isolate\:policy-capacity-min dp-isolate\:policy-capacity-restore restore-ready db-restore db-capture patch-pending-task-deps task-snapshot device-password vision-password policy-capacity-min policy-capacity-restore kafka-producer kafka-producer-ui kafka-producer-ui-up kafka-producer-ui-down kafka-producer-ui-status kafka-producer-ui-logs status dp-isolate-status portal-up portal-build-only-up portal-ui-up portal-restart portal-rebuild portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
+.PHONY: help run-dp-isolate run-dp-isolate-build-only run-dp-isolate-ui-only demo-short demo-playwright demo-short-playwright demo-short-resume test-dp-isolate test-dp-isolate-api test-dp-isolate-api-build-only test-dp-isolate-api-short test-dp-isolate-smoke dp-isolate dp-isolate\:start dp-isolate\:build-only dp-isolate\:ui-only dp-isolate\:restart dp-isolate\:rebuild dp-isolate\:stop dp-isolate\:status dp-isolate\:restore-ready dp-isolate\:patch-pending-task-deps dp-isolate\:task-snapshot dp-isolate\:device-password dp-isolate\:vision-password dp-isolate\:policy-capacity-min dp-isolate\:policy-capacity-restore dp-isolate\:set-policy-capacity set-policy-capacity restore-ready db-restore db-capture patch-pending-task-deps task-snapshot device-password vision-password policy-capacity-min policy-capacity-restore kafka-producer kafka-producer-ui kafka-producer-ui-up kafka-producer-ui-down kafka-producer-ui-status kafka-producer-ui-logs status dp-isolate-status portal-up portal-build-only-up portal-ui-up portal-restart portal-rebuild portal-down portal-logs portal-license-backends client-up client-down client-logs open-dp-isolate logs stop clean
 
 help:
 	@node tools/dp-isolate-dev.cjs help
@@ -111,6 +111,13 @@ dp-isolate\:policy-capacity-min:
 dp-isolate\:policy-capacity-restore:
 	@node tools/dp-isolate-policy-capacity.cjs restore
 
+dp-isolate\:set-policy-capacity:
+	@if [ -z "$(SC)" ] || [ -z "$(DP)" ] || [ -z "$(N)" ]; then \
+		echo "  [error] SC, DP and N are required: make set-policy-capacity SC=<SC name> DP=<DP name> N=<capacity>"; \
+		exit 1; \
+	fi
+	@node tools/dp-isolate-policy-capacity.cjs set "$(SC)" "$(DP)" "$(N)"
+
 restore-ready: dp-isolate\:restore-ready
 
 db-restore:
@@ -134,6 +141,8 @@ vision-password: dp-isolate\:vision-password
 policy-capacity-min: dp-isolate\:policy-capacity-min
 
 policy-capacity-restore: dp-isolate\:policy-capacity-restore
+
+set-policy-capacity: dp-isolate\:set-policy-capacity
 
 kafka-producer:
 	@bash tools/kafka-securityevent-producer/run.sh --docker-network "$(KAFKA_DOCKER_NETWORK)" --bootstrap "$(KAFKA_BOOTSTRAP)" $(KAFKA_ARGS)
