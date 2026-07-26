@@ -1,9 +1,19 @@
 # kafka-securityevent-producer
 
-A lab tool that sends synthetic DefensePro security-event messages to Kafka in
-the exact binary format that `attack-service` (sdcc-services) expects.
+A lab Kafka tool with **two halves**:
 
-Useful for testing the attack-service pipeline without a real DefensePro device.
+1. **Producer** (CLI, `run.sh`) — sends synthetic DefensePro security-event messages in the
+   exact binary format that `attack-service` (sdcc-services) expects, so the attack pipeline
+   can be exercised without a real DefensePro device.
+2. **Observer** (web UI, `ui/`) — lists broker topics and live-streams messages off any topic,
+   so you can watch what a service actually publishes. The UI presents itself as
+   "⚡ Kafka Tool" with **Producer** and **Consumer** tabs.
+
+The name predates the UI and undersells it: if you are here to *watch* a topic rather than
+publish to one, see [Web UI](#web-ui--producer--observer) below.
+
+> **Lab only.** Neither half supports SASL/SSL, so neither can talk to a Confluent cluster.
+> See [Limitations](#limitations) before reaching for this against a real environment.
 
 ---
 
@@ -71,6 +81,68 @@ count     : 1
 compress  : false (XZ level-1)
 [1/1] sent → partition=0 offset=3 timestamp=1779802497515
 ```
+
+---
+
+## Web UI — producer + observer
+
+```bash
+cd sdcc-tests/tools/kafka-securityevent-producer/ui
+npm install        # first time only
+npm start          # → http://localhost:3000  (PORT env var to change)
+```
+
+Two tabs:
+
+- **Producer** — a form over the CLI. Bootstrap, topic, count, Docker network, compress, dry-run,
+  plus per-field overrides. Submitting shells out to `run.sh`, so behaviour is identical to the
+  command line.
+- **Consumer** — the observer. Pick a bootstrap and topic, optionally a group id and
+  "from beginning", then **Start**. Messages stream in live with auto-scroll.
+
+### HTTP API
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/fields` | default payload field names and types |
+| `POST /api/send` | produce (shells out to `run.sh`) |
+| `GET /api/topics` | list broker topics via the Kafka admin client; internal `__*` topics filtered out |
+| `GET /api/consume` | **SSE stream** of messages. Query: `bootstrap`, `topic` (required), `fromBeginning`, `groupId` |
+
+### What the observer shows
+
+Each streamed message carries `topic`, `partition`, `offset`, `timestamp`, `valueSize`, and the
+key and value as **hex** (`keyHex`, `valueHex`).
+
+It does **not** decode the payload. Production messages are Kryo-serialised `KValue` objects, and
+the consumer streams raw bytes, so you get proof that a message arrived — when, how large, on which
+partition and offset — but not its fields. To read fields you either decode the hex yourself or
+consume with something that has the `KValue` classes on its classpath.
+
+### One safety property worth knowing
+
+The consumer defaults its group id to `ui-consumer-<timestamp>` — **a fresh group per session**.
+That means it does not join any service's consumer group and therefore cannot take partitions away
+from a running consumer: observing is read-only in effect as well as intent. If you override
+`groupId` with a real service's group, you lose that guarantee and will steal its partitions.
+
+---
+
+## Limitations
+
+- **No SASL/SSL, in either half.** The Java producer sets no `security.protocol` and the UI builds
+  its client as `new Kafka({ brokers: [bootstrap] })` with no `ssl` or `sasl` options. Both can
+  therefore only reach a **plaintext** broker — the lab `kafkaQA`. Pointing either at a Confluent
+  bootstrap (`SASL_SSL` + `PLAIN`) fails at the handshake. Making it usable against Confluent means
+  adding `ssl: true` plus `sasl: { mechanism: 'plain', username, password }` to the UI client, and
+  the equivalent three producer properties on the Java side.
+- **The payload is security-event shaped.** `--topic` and `--field` let you publish to any topic
+  with arbitrary fields, but the defaults and the `KValue` stubs are built around DefensePro
+  security events. Producing a *different* message contract (for example pipeliner's on-demand
+  statistics trigger, which wants accountId plus account and services JSON) means overriding every
+  field by hand and checking the consumer accepts it.
+- **The observer cannot decode.** See above — hex only.
+- **No offset management or replay UI** beyond `fromBeginning`.
 
 ---
 
@@ -189,6 +261,11 @@ kafka-securityevent-producer/
         SecurityEventProducer.java   ← main class
     resources/
       simplelogger.properties    ← suppresses Kafka client INFO noise
+  ui/
+    server.js                    ← Express app: /api/fields, /api/send, /api/topics, /api/consume
+    package.json                 ← express + kafkajs
+    public/index.html            ← "⚡ Kafka Tool" — Producer and Consumer tabs
+  Dockerfile, docker-entrypoint.sh, .dockerignore
 ```
 
 The `KObject` / `KProperties` / `KValue` / `KKey` stubs use the same
