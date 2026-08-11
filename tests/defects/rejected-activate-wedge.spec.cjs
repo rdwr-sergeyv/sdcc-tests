@@ -2,11 +2,10 @@
 // See docs/kb/troubleshooting/rejected-activate-wedges-asset.md
 //
 // WHAT THESE ASSERT
-//   The DESIRED behaviour, not the current behaviour. Every test here is marked `test.fail()`,
-//   which means Playwright expects it to fail today and will report an error if it ever PASSES.
-//   So when the defect is fixed these turn green, Playwright says "expected to fail but passed",
-//   and you delete the annotation. A test that asserted the bug instead would enshrine it and
-//   would have to be rewritten by whoever fixes it.
+//   The DESIRED behaviour. They were written against the defect and marked `test.fail()`; the fix
+//   in sdcc `fix/reject-activate-before-writing-state` (plus its sdcc-portal counterpart) makes
+//   them pass, so the annotations are gone and these are now plain regression tests.
+//   THEY REQUIRE THAT FIX -- on an unpatched dev they will fail, which is the point.
 //
 // THE DEFECT, briefly
 //   _start_incident creates the tasks, flips the asset to `activating`, and only then calls
@@ -167,7 +166,6 @@ test.describe('a rejected activate must not damage the asset', () => {
   });
 
   test('is refused with a 4xx before anything is written', async ({ request }) => {
-    test.fail(); // delete this line once the reason is validated at the boundary
     const baseUrl = await login(request);
     const response = await activateWithInvalidReason(request, baseUrl, info);
 
@@ -182,7 +180,6 @@ test.describe('a rejected activate must not damage the asset', () => {
   });
 
   test('leaves the asset usable, not stranded in "activating"', async ({ request }) => {
-    test.fail(); // delete this line once the status is not flipped before validation succeeds
     const baseUrl = await login(request);
     await activateWithInvalidReason(request, baseUrl, info);
 
@@ -193,7 +190,6 @@ test.describe('a rejected activate must not damage the asset', () => {
   });
 
   test('leaves no orphaned tasks behind', async ({ request }) => {
-    test.fail(); // delete this line once no records are created before validation succeeds
     const baseUrl = await login(request);
     const before = unfinishedTaskCount();
     await activateWithInvalidReason(request, baseUrl, info);
