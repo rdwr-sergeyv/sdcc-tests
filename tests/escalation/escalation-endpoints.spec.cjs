@@ -115,16 +115,33 @@ test.describe('legacy escalation endpoints -- guard contract', () => {
       expect(await res.text()).toMatch(/was not found/i);
     });
 
-    test(`${which}: a trigger outside the enum is 400`, async ({ request }) => {
-      const baseUrl = await login(request);
-      const info = assetInfo(ASSET_NAME);
-      for (const body of [{ trigger: 'whatever' }, {}]) {
-        const res = await escalate(request, baseUrl, which, info.id, body);
-        expect(res.status(), await res.text()).toBe(400);
-        // the message must enumerate the accepted values -- the client shows it to an operator
-        expect(await res.text()).toMatch(/manual.*auto|auto.*manual/);
-      }
-    });
+    if (which === 'enable') {
+      test('enable: a trigger outside the enum is 400', async ({ request }) => {
+        const baseUrl = await login(request);
+        const info = assetInfo(ASSET_NAME);
+        for (const body of [{ trigger: 'whatever' }, {}]) {
+          const res = await escalate(request, baseUrl, which, info.id, body);
+          expect(res.status(), await res.text()).toBe(400);
+          // the message must enumerate the accepted values -- the client shows it to an operator
+          expect(await res.text()).toMatch(/manual.*auto|auto.*manual/);
+        }
+      });
+    } else {
+      test('disable: the trigger is accepted without being validated, as isolation does', async ({ request }) => {
+        // Deliberate asymmetry, copied from isolation: only the enable side of each pair checks
+        // the trigger. Pinned so nobody "fixes" it into a 400 without deciding to diverge, and so
+        // the day CDDOS-3010 starts reading the trigger for the audit entry, this test fails and
+        // makes that a decision rather than an accident.
+        const baseUrl = await login(request);
+        const info = assetInfo(ASSET_NAME);
+        for (const body of [{ trigger: 'whatever' }, {}]) {
+          const res = await escalate(request, baseUrl, which, info.id, body);
+          const text = await res.text();
+          expect(res.status(), text).not.toBe(400);
+          expect(text, 'a bad trigger must fall through to the next guard, not be reported').not.toMatch(/invalid trigger/i);
+        }
+      });
+    }
 
     test(`${which}: an off-cloud asset is 404, for both triggers`, async ({ request }) => {
       const baseUrl = await login(request);
