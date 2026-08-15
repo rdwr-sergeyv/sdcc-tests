@@ -206,7 +206,7 @@ Environment:
   DP_ISOLATE_CLIENT_PORT       Client port, default ${clientPort}
   PORTAL_ORIGIN                Vite proxy target, default ${portalUrl}
   DP_ISOLATE_COMPOSE_PROFILE   Comma-separated Compose profiles; combine one task type (execute, build-only) and
-                               one service scope (minimal, full); default execute,minimal; use none for no profiles
+                               one service scope (minimal, full, lab); default execute,minimal; use none for no profiles
   SDCC_LICENSE_IFN             Container interface for license generation, default eth0
   SDCC_LICENSE_MODULES         Comma-separated module names, default all
   SDCC_LICENSE_SERVICES        Comma-separated backend services, default incident-manager,cmd-executor

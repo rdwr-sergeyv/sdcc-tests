@@ -131,11 +131,14 @@ services:
   # portal and portal-build differ in exactly two things: which profile selects them, and the
   # task type they stamp on the tasks they create. Everything else -- ports, volumes, the
   # supervisord command -- comes from *portal-service-base, so the two cannot drift apart.
+  # `lab` is a service *scope* (like minimal / full) and deliberately selects no portal: the task
+  # type picks that -- `execute` gets this one, `build-only` gets portal-build. Listing `lab` here
+  # too made the scope unusable with build-only, because both portals inherit the same published
+  # port from *portal-service-base and the second one to start would fail.
   portal:
     <<: *portal-service-base
     profiles:
       - execute
-      - lab
     environment:
       <<: *portal-environment
 
