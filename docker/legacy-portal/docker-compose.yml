@@ -79,28 +79,16 @@ x-hybrid-backend-environment: &hybrid-backend-environment
 # topology choice -- it is one environment variable -- so it is one now, and note it only
 # governs AUTOMATIC diversions: a manual action takes its type from the caret in the UI.
 #
-# Two other scopes exist and are not used in practice. They run each backend module in its own
-# container instead of under supervisord, which the lab nodes already do:
+# `internal-mongo` starts mongo alone, for a portal run outside compose. That is the only other
+# profile.
 #
-#   minimal        — mongo + portal + cmd-executor + incident-manager
-#   full           — mongo + portal + every backend module, ~44 containers
-#   internal-mongo — mongo alone, for an externally-run portal
-#
-# NEVER combine `full` with a running `lab` stack: a whole-stack up treats the out-of-scope
-# containers as orphans. That deleted both backend nodes on 2026-08-11.
-
-# The per-module containers below are selected by "full" (or "minimal" for the core two).
-# They are the alternative to the supervisord nodes, not an addition to them.
-x-full-profile: &full-profile
-  - full
-
-x-minimal-and-full-profiles: &minimal-and-full-profiles
-  - minimal
-  - full
+# Removed 2026-08-15: the `minimal` and `full` scopes and their 45 per-module containers -- one
+# service per backend module, an alternative to running the same modules under supervisord in
+# backend-hybrid / backend-monitor, which is what the lab does. Nobody used them, and `full` was
+# the profile that deleted both backend nodes as orphans on 2026-08-11.
 
 x-backend-service: &backend-service
   build: *portal-build
-  profiles: *full-profile
   restart: unless-stopped
   volumes:
     - *device-templates-volume
@@ -110,8 +98,6 @@ services:
     image: ${LEGACY_PORTAL_MONGO_IMAGE:-mongo:8.2}
     profiles:
       - internal-mongo
-      - minimal
-      - full
       - lab
     ports:
       - "${LEGACY_PORTAL_MONGO_PORT:-27018}:27017"
@@ -135,136 +121,9 @@ services:
     <<: *portal-service-base
     profiles:
       - lab
-      - minimal
-      - full
     environment:
       <<: *portal-environment
 
-  alert-manager-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-alert-manager-aggregator.lck && exec sdcc-alert-manager-aggregator.py --debug true"]
-
-  ar-config-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-ar-config-poller.lck && exec sdcc-ar-config-gaps.py"]
-
-  asset-advertisement-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-asset-advertisement-aggregator.lck && exec sdcc-asset-advertisement-aggregator.py --debug true"]
-
-  asset-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-asset-aggregator.lck && exec sdcc-asset-aggregator.py --debug true"]
-
-  asset-health-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-asset-health-aggregator.lck && exec sdcc-asset-health-aggregator.py --debug true"]
-
-  attack-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-attack-aggregator.lck && exec sdcc-attack-aggregator.py --debug true"]
-
-  attacks-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-attacks-poller.lck && exec sdcc-attacks-poller.py --debug true"]
-
-  bgp-advertise-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-bgp-advertise-poller.lck && exec sdcc-bgp-advertise-poller.py --debug true"]
-
-  bgp-over-gre-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-bgp-over-gre-aggregator.lck && exec sdcc-bgp-over-gre-aggregator.py --debug true"]
-
-  bgp-peer-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-bgp-peer-poller.lck && exec sdcc-bgp-peer-poller.py --debug true"]
-
-  bgp-routing-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-bgp-route-poller.lck && exec sdcc-bgp-route-poller.py --debug true"]
-
-  cmd-executor:
-    <<: *backend-service
-    profiles: *minimal-and-full-profiles
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-cmd-executor.lck && exec sdcc-cmd-executor.py --debug true"]
-
-  daily-jobs-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-daily-jobs-aggregator.lck && exec sdcc-daily-jobs-aggregator.py --debug true"]
-
-  diversion-period-checker-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-diversion-period-checker-aggregator.lck && exec sdcc-diversion-period-checker-aggregator.py --debug true"]
-
-  domain-resolve-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-domain-resolve-aggregator.lck && exec sdcc-domain-resolve-aggregator.py --debug true"]
-
-  domain-resolve-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-domain-resolve-poller.lck && exec sdcc-domain-resolve-poller.py --debug true"]
-
-  dp-fail-over-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-dp-fail-over-aggregator.lck && exec sdcc-dp-fail-over-aggregator.py --debug true"]
-
-  dp-fail-over-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-dp-fail-over-poller.lck && exec sdcc-dp-fail-over-poller.py --debug true"]
-
-  dp-policy-inconsistency-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-dp-policy-inconsistency-aggregator.lck && exec sdcc-dp-policy-inconsistency-aggregator.py --debug true"]
-
-  dp-policy-manager:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-dp-policy-manager.lck && exec sdcc-dp-policy-manager.py --debug true"]
-
-  file-reporter-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-file-reporter-aggregator.lck && exec sdcc-file-reporter-aggregator.py --debug true"]
-
-  flow-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-flow-poller.lck && exec sdcc-flow-poller.py --debug true"]
-
-  health-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-health-poller.lck && exec sdcc-health-poller.py --debug true"]
-
-  incident-manager:
-    <<: *backend-service
-    profiles: *minimal-and-full-profiles
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-incident-manager.lck && exec sdcc-incident-manager.py --debug true"]
-
-  # Supervised backend node: runs multiple sdcc modules under supervisord in one
-  # container (PLAN item 1: cmd-executor + incident-manager only, role=hybrid).
-  # Registers as backend "docker"; no SCs assigned yet, so it sits idle.
   backend-hybrid:
     <<: *backend-service
     profiles:
@@ -317,108 +176,3 @@ services:
         source: ./supervisor
         target: /etc/sdcc/supervisor
         read_only: true
-
-  netflow-manager:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-netflow-manager.lck && exec sdcc-netflow-manager"]
-
-  pdf-incident-reporter-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-pdf-incident-reporter-aggregator.lck && exec sdcc-pdf-incident-reporter-aggregator.py --debug true"]
-
-  resource-utilization-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-resource-utilization-aggregator.lck && exec sdcc-resource-utilization-aggregator.py --debug true"]
-
-  sc-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-sc-aggregator.lck && exec sdcc-sc-aggregator.py --debug true"]
-
-  sc-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-sc-poller.lck && exec sdcc-sc-poller.py --debug true"]
-
-  site-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-site-aggregator.lck && exec sdcc-site-aggregator.py --debug true"]
-
-  site-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-site-poller.lck && exec sdcc-site-poller.py --debug true"]
-
-  static-route-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-static-route-aggregator.lck && exec sdcc-static-route-aggregator.py --debug true"]
-
-  static-routes-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-static-routes-poller.lck && exec sdcc-static-routes-poller.py --debug true"]
-
-  status-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-status-aggregator.lck && exec sdcc-status-aggregator.py --debug true"]
-
-  ts-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-ts-aggregator.lck && exec sdcc-ts-aggregator.py --debug true"]
-
-  vision-api-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-vision-api-poller.lck && exec sdcc-vision-api-poller.py --debug true"]
-
-  vision-connectivity-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-vision-connectivity-aggregator.lck && exec sdcc-vision-connectivity-aggregator.py --debug true"]
-
-  vision-control-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-vision-control-poller.lck && exec sdcc-vision-control-poller.py --debug true"]
-
-  vision-cpe-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-vision-cpe-aggregator.lck && exec sdcc-vision-cpe-aggregator.py --debug true"]
-
-  vision-device-policy-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-vision-device-policy-aggregator.lck && exec sdcc-vision-device-policy-aggregator.py --debug true"]
-
-  vision-device-policy-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-vision-device-policy-poller.lck && exec sdcc-vision-device-policy-poller.py --debug true"]
-
-  vision-policies-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-vision-policies-aggregator.lck && exec sdcc-vision-policies-aggregator.py --debug true"]
-
-  vision-policies-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-vision-policies-poller.lck && exec sdcc-vision-policies-poller.py --debug true"]
-
-  waf-route-poller:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-waf-route-poller.lck && exec sdcc-waf-route-poller.py --debug true"]
-
-  waf-ssl-protection-aggregator:
-    <<: *backend-service
-    environment: *hybrid-backend-environment
-    command: ["/bin/sh", "-c", "rm -f /var/lock/sdcc/sdcc-waf-ssl-protection-aggregator.lck && exec sdcc-waf-ssl-protection-aggregator.py --debug true"]
