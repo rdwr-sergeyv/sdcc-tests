@@ -32,11 +32,13 @@ x-portal-environment: &portal-environment
   SDCC_BACKEND_NAME: *hybrid-backend-name
   SDCC_BACKEND_IP: ${SDCC_BACKEND_IP:-127.0.0.1}
   SDCC_BACKEND_ROLE: ${SDCC_BACKEND_ROLE:-hybrid}
-  SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-provisioning}
+  # `build` builds the commands and contacts no device; `provisioning` builds and executes.
+  # Defaults to the safe one -- this compose file is a test harness, and an accidental
+  # provisioning run reconfigures real devices.
+  SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-build}
   # Swappable supervisord profile (file under supervisor/). Only one profile exists for the
   # portal today ("portal"); the var mirrors the backend nodes' SDCC_HYBRID_PROFILE /
-  # SDCC_MONITOR_PROFILE for symmetry and host override. Shared by every portal variant --
-  # supervisord is orthogonal to the task type, so build-only gets it too.
+  # SDCC_MONITOR_PROFILE for symmetry and host override.
   SDCC_SUPERVISOR_PROFILE: ${SDCC_PORTAL_PROFILE:-portal}
 
 x-portal-service-base: &portal-service-base
@@ -64,36 +66,31 @@ x-hybrid-backend-environment: &hybrid-backend-environment
   # canonical *hybrid-backend-name / *monitor-backend-name anchors at the top.
   SDCC_BACKEND_IP: ${SDCC_BACKEND_IP:-10.20.4.20}
   SDCC_BACKEND_ROLE: hybrid
-  SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-provisioning}
+  SDCC_TASK_TYPE: ${SDCC_TASK_TYPE:-build}
 
-# Profiles are two independent dimensions — always combine one from each:
+# ONE profile, and one variable.
 #
-#   Task type (portal only):
-#     execute    — no SDCC_TASK_TYPE set; portal runs in default execution mode
-#     build-only — SDCC_TASK_TYPE=build; portal creates task records in the DB
+#   DP_ISOLATE_COMPOSE_PROFILE=lab   mongo + portal + backend-hybrid + backend-monitor.
+#                                    This is the stack. It is what .env sets and what you want.
+#   SDCC_TASK_TYPE=build             build the commands, contact no device  (default)
+#   SDCC_TASK_TYPE=provisioning      build AND execute them on the devices
 #
-#   Service scope (backend services):
-#     minimal    — mongo + cmd-executor + incident-manager (isolated containers)
-#     full       — mongo + all backend services (isolated containers)
+# The task type used to be a second portal service selected by a second profile. It is not a
+# topology choice -- it is one environment variable -- so it is one now, and note it only
+# governs AUTOMATIC diversions: a manual action takes its type from the caret in the UI.
 #
-#   Examples:
-#     --profile execute   --profile minimal
-#     --profile execute   --profile full
-#     --profile build-only --profile minimal
-#     --profile build-only --profile full
+# Two other scopes exist and are not used in practice. They run each backend module in its own
+# container instead of under supervisord, which the lab nodes already do:
 #
-#   Standalone:
-#     internal-mongo — mongo only (use with an external portal instance)
-#     lab            — supervisord mode: execute-mode portal + mongo +
-#                      backend-hybrid + backend-monitor (each runs multiple
-#                      backend modules under supervisord). This is the Makefile
-#                      default. Unlike "execute,full", no per-module containers
-#                      are started; the two supervised nodes cover all roles.
+#   minimal        — mongo + portal + cmd-executor + incident-manager
+#   full           — mongo + portal + every backend module, ~44 containers
+#   internal-mongo — mongo alone, for an externally-run portal
+#
+# NEVER combine `full` with a running `lab` stack: a whole-stack up treats the out-of-scope
+# containers as orphans. That deleted both backend nodes on 2026-08-11.
 
-# Individual backend service containers are activated by "full" (or "minimal"
-# for the core two). The "lab" profile is reserved for the supervisord-based
-# backend nodes (backend-hybrid, backend-monitor) which run multiple modules
-# in one container — mutually exclusive with the isolated "full" scope.
+# The per-module containers below are selected by "full" (or "minimal" for the core two).
+# They are the alternative to the supervisord nodes, not an addition to them.
 x-full-profile: &full-profile
   - full
 
@@ -128,27 +125,20 @@ services:
       timeout: 3s
       retries: 30
 
-  # portal and portal-build differ in exactly two things: which profile selects them, and the
-  # task type they stamp on the tasks they create. Everything else -- ports, volumes, the
-  # supervisord command -- comes from *portal-service-base, so the two cannot drift apart.
-  # `lab` is a service *scope* (like minimal / full) and deliberately selects no portal: the task
-  # type picks that -- `execute` gets this one, `build-only` gets portal-build. Listing `lab` here
-  # too made the scope unusable with build-only, because both portals inherit the same published
-  # port from *portal-service-base and the second one to start would fail.
+  # One portal, whichever scope you pick. The build/execute choice is SDCC_TASK_TYPE, not a
+  # separate service: `build` builds the commands without touching a device, `provisioning`
+  # builds and executes them. There used to be a second service, portal-build, that existed
+  # only to hardcode that one variable -- which cost a profile, made "which portal is running?"
+  # a real question, and could not be combined with the lab scope because both published the
+  # same port.
   portal:
     <<: *portal-service-base
     profiles:
-      - execute
+      - lab
+      - minimal
+      - full
     environment:
       <<: *portal-environment
-
-  portal-build:
-    <<: *portal-service-base
-    profiles:
-      - build-only
-    environment:
-      <<: *portal-environment
-      SDCC_TASK_TYPE: build
 
   alert-manager-aggregator:
     <<: *backend-service

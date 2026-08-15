@@ -93,8 +93,6 @@ const allComposeProfiles = [
   "internal-mongo",
   "minimal",
   "full",
-  "execute",
-  "build-only",
   "lab",
 ];
 
@@ -185,8 +183,8 @@ function help() {
   make kafka-producer-ui-status Show Kafka producer UI background status
   make kafka-producer-ui-logs  Show recent Kafka producer UI logs
   make status                  Show portal/client status
-  make portal-up               Start legacy portal Docker Compose stack (execute + minimal profiles)
-  make portal-build-only-up    Start legacy portal in build-only task mode (build-only + minimal profiles)
+  make portal-up               Start mongo + portal (task type from SDCC_TASK_TYPE, default build)
+  make portal-build-only-up    Alias of portal-up; SDCC_TASK_TYPE=build is already the default
   make portal-ui-up            Start only Mongo and portal; keep worker services stopped
   make portal-restart          Restart existing legacy portal Docker Compose stack without rebuilding
   make portal-rebuild          Rebuild/recreate legacy portal Docker Compose stack
@@ -205,8 +203,9 @@ Environment:
   LEGACY_PORTAL_PORT           Portal port, default ${portalPort}
   DP_ISOLATE_CLIENT_PORT       Client port, default ${clientPort}
   PORTAL_ORIGIN                Vite proxy target, default ${portalUrl}
-  DP_ISOLATE_COMPOSE_PROFILE   Comma-separated Compose profiles; combine one task type (execute, build-only) and
-                               one service scope (minimal, full, lab); default execute,minimal; use none for no profiles
+  DP_ISOLATE_COMPOSE_PROFILE   Compose profile; default and intended value is lab (mongo + portal + the two
+                               supervisord backend nodes). minimal/full swap the nodes for per-module
+                               containers and are not used in practice; use none for no profiles
   SDCC_LICENSE_IFN             Container interface for license generation, default eth0
   SDCC_LICENSE_MODULES         Comma-separated module names, default all
   SDCC_LICENSE_SERVICES        Comma-separated backend services, default incident-manager,cmd-executor
@@ -262,11 +261,9 @@ async function status() {
 // Component target: starts only the portal service and its mongo dependency.
 // Activates only the task-type profile so backend worker services are not started.
 async function portalUp() {
-  const profiles = composeProfiles(["execute"]);
-  const taskType = profiles.includes("build-only") ? "build-only" : "execute";
-  const portalService = taskType === "build-only" ? "portal-build" : "portal";
-  const profileArgs = ["--profile", taskType];
-  const args = [...profileArgs, "up", "--build", "-d", portalService, "mongo"];
+  // There is one portal service; build vs execute is SDCC_TASK_TYPE, not a service or profile.
+  const profileArgs = composeProfileArgs(["lab"]);
+  const args = [...profileArgs, "up", "--build", "-d", "portal", "mongo"];
   console.log(`Starting portal service (task-type: ${taskType})...`);
   console.log("Checking Docker CLI...");
   ensureCommand("docker", ["--version"], "Docker CLI is required.");
@@ -310,20 +307,20 @@ async function pruneConflictingBackends(defaults) {
 
 // Full lab stack: all services according to DP_ISOLATE_COMPOSE_PROFILE.
 async function stackUp() {
-  const profileArgs = composeProfileArgs(["execute", "minimal"]);
+  const profileArgs = composeProfileArgs(["lab"]);
   const args = [...profileArgs, "up", "--build", "-d"];
   console.log(
     `Starting full lab stack (${describeComposeProfiles(profileArgs)})...`,
   );
   console.log("Checking Docker CLI...");
   ensureCommand("docker", ["--version"], "Docker CLI is required.");
-  await pruneConflictingBackends(["execute", "minimal"]);
+  await pruneConflictingBackends(["lab"]);
   await runDockerComposeLive(args);
   await waitForUrl(portalUrl, 120000, "legacy portal");
 }
 
 async function portalBuildOnlyUp() {
-  const profileArgs = composeProfileArgs(["build-only", "minimal"]);
+  const profileArgs = composeProfileArgs(["lab"]);
   const args = [...profileArgs, "up", "--build", "-d"];
   console.log(
     `Starting legacy portal Docker Compose stack (${describeComposeProfiles(profileArgs)})...`,
@@ -335,11 +332,8 @@ async function portalBuildOnlyUp() {
 }
 
 async function portalUiUp() {
-  const profileArgs = composeProfileArgs(["execute", "minimal"]);
-  const profiles = composeProfiles(["execute", "minimal"]);
-  const portalService = profiles.includes("build-only")
-    ? "portal-build"
-    : "portal";
+  const profileArgs = composeProfileArgs(["lab"]);
+  const portalService = "portal";
   const services = profileArgs.length
     ? ["mongo", portalService]
     : [portalService];
@@ -361,11 +355,8 @@ async function stopWorkersIfPresent() {
 
 // Component target: restarts only the portal service (leaves backends running).
 async function portalRestart() {
-  const profiles = composeProfiles(["execute"]);
-  const taskType = profiles.includes("build-only") ? "build-only" : "execute";
-  const portalService = taskType === "build-only" ? "portal-build" : "portal";
-  const profileArgs = ["--profile", taskType];
-  const args = [...profileArgs, "up", "-d", portalService, "mongo"];
+  const profileArgs = composeProfileArgs(["lab"]);
+  const args = [...profileArgs, "up", "-d", "portal", "mongo"];
   console.log("Restarting portal service without rebuilding...");
   console.log("Checking Docker CLI...");
   ensureCommand("docker", ["--version"], "Docker CLI is required.");
@@ -381,7 +372,7 @@ async function portalRestart() {
 
 // Full lab stack restart: restarts all services according to DP_ISOLATE_COMPOSE_PROFILE.
 async function stackRestart() {
-  const profileArgs = composeProfileArgs(["execute", "minimal"]);
+  const profileArgs = composeProfileArgs(["lab"]);
   const args = [...profileArgs, "up", "-d"];
   console.log("Restarting full lab stack without rebuilding...");
   console.log("Checking Docker CLI...");
@@ -392,7 +383,7 @@ async function stackRestart() {
     await stackUp();
     return;
   }
-  await pruneConflictingBackends(["execute", "minimal"]);
+  await pruneConflictingBackends(["lab"]);
   await runDockerComposeLive(args);
   await waitForUrl(portalUrl, 120000, "legacy portal");
 }
@@ -446,20 +437,17 @@ async function portalLicenseBackends() {
 
 // Component target: build + (re)start only the portal service and mongo.
 async function portalUpBuild() {
-  const profiles = composeProfiles(["execute"]);
-  const taskType = profiles.includes("build-only") ? "build-only" : "execute";
-  const portalService = taskType === "build-only" ? "portal-build" : "portal";
-  const profileArgs = ["--profile", taskType];
+  const profileArgs = composeProfileArgs(["lab"]);
   const args = [
     ...profileArgs,
     "up",
     "--build",
     "--force-recreate",
     "-d",
-    portalService,
+    "portal",
     "mongo",
   ];
-  console.log(`Building and starting portal service (task-type: ${taskType})...`);
+  console.log(`Building and starting portal service (SDCC_TASK_TYPE picks build vs provisioning)...`);
   console.log("Checking Docker CLI...");
   ensureCommand("docker", ["--version"], "Docker CLI is required.");
   await runDockerComposeLive(args);
@@ -468,12 +456,9 @@ async function portalUpBuild() {
 
 // Component target: build portal image only (no start).
 async function portalRebuild() {
-  const profiles = composeProfiles(["execute"]);
-  const taskType = profiles.includes("build-only") ? "build-only" : "execute";
-  const portalService = taskType === "build-only" ? "portal-build" : "portal";
-  const profileArgs = ["--profile", taskType];
-  const args = [...profileArgs, "build", portalService, "mongo"];
-  console.log(`Building portal image (task-type: ${taskType})...`);
+  const profileArgs = composeProfileArgs(["lab"]);
+  const args = [...profileArgs, "build", "portal", "mongo"];
+  console.log(`Building portal image...`);
   console.log("Checking Docker CLI...");
   ensureCommand("docker", ["--version"], "Docker CLI is required.");
   await runDockerComposeLive(args);
@@ -481,21 +466,21 @@ async function portalRebuild() {
 
 // Full lab stack: build + (re)start all services according to DP_ISOLATE_COMPOSE_PROFILE.
 async function stackUpBuild() {
-  const profileArgs = composeProfileArgs(["execute", "minimal"]);
+  const profileArgs = composeProfileArgs(["lab"]);
   const args = [...profileArgs, "up", "--build", "--force-recreate", "-d"];
   console.log(
     `Building and starting full lab stack (${describeComposeProfiles(profileArgs)})...`,
   );
   console.log("Checking Docker CLI...");
   ensureCommand("docker", ["--version"], "Docker CLI is required.");
-  await pruneConflictingBackends(["execute", "minimal"]);
+  await pruneConflictingBackends(["lab"]);
   await runDockerComposeLive(args);
   await waitForUrl(portalUrl, 120000, "legacy portal");
 }
 
 // Full lab stack: build images only (no start).
 async function stackRebuild() {
-  const profileArgs = composeProfileArgs(["execute", "minimal"]);
+  const profileArgs = composeProfileArgs(["lab"]);
   const args = [...profileArgs, "build"];
   console.log(
     `Building lab stack images (${describeComposeProfiles(profileArgs)})...`,

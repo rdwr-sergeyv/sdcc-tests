@@ -1,5 +1,12 @@
 .DEFAULT_GOAL := help
 
+# The stack-* targets pass these through to docker compose. Without defaults they were passed
+# through EMPTY, and compose reads `${SDCC_HYBRID_PROFILE:-minimal-hybrid}` -- so an empty value
+# silently downgraded the backend nodes from 45 supervised processes to the minimal set, no matter
+# what .env said. Defaults here match what the lab actually runs.
+SDCC_HYBRID_PROFILE ?= full-hybrid
+SDCC_MONITOR_PROFILE ?= full-monitor
+
 KAFKA_BOOTSTRAP ?= kafkaQA:9092
 KAFKA_DOCKER_NETWORK ?= lab
 KAFKA_PRODUCER_UI_PORT ?= 3000
