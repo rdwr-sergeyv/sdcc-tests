@@ -4,15 +4,11 @@
 //   POST /api/incident/escalation/disable/<asset_id>   body {"trigger": "manual"|"auto"}
 //
 // WHY THIS EXISTS
-//   These endpoints are deliberately incomplete: the guards and status codes are final, the action
-//   itself waits on the SC escalation flag and the Original SC -> Escalation SC mapping
-//   (CDDOS-3007), so a request that passes every guard answers 501. The unified portal is being
-//   built against this contract in parallel, so the contract needs pinning now -- otherwise the
-//   status codes drift while the client codes against them.
-//
-//   The 501 is the interesting assertion. It proves the whole guard chain was traversed rather
-//   than something short-circuiting earlier, which is exactly what a caller needs to trust the
-//   4xx codes mean what they say.
+//   Enable is a temporary integration stub: after its final guards pass, it returns 200 with
+//   {reply: "OK", simulated: true} but creates no tasks, changes no state, and touches no device.
+//   This lets the Unified caller integrate without pretending traffic has moved. Disable remains
+//   501 until CDDOS-3010. The contract is pinned so the stub cannot silently become an unmarked
+//   false success while CDDOS-3009 implements the real action.
 //
 // SAFETY
 //   The one test that needs a diverted asset activates with type=build, so no device is contacted,
@@ -41,7 +37,7 @@ function assetInfo(name) {
     const sc = db.ScrubbingCenters.findOne({ _id: site.sc_id });
     const account = db.Accounts.findOne({ _id: a.account });
     // zone closure -- an out-of-zone DP is refused earlier, with a different message, which would
-    // make the 501 assertion below pass for the wrong reason
+    // make the final guarded-response assertion below pass for the wrong reason
     const zones = {};
     db.DPZones.find({}).forEach((z) => { zones[String(z._id)] = z; });
     const closure = [];
@@ -181,7 +177,7 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
     expect(READY, `test needs ${ASSET_NAME} undiverted, it is ${info.status}`).toContain(info.status);
   });
 
-  test('every guard passes on an on-cloud asset, and the action answers 501 until CDDOS-3007 lands',
+  test('every guard passes on an on-cloud asset, and enable returns the marked integration stub',
     async ({ request }) => {
       const baseUrl = await login(request);
 
@@ -204,11 +200,18 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
         for (const which of ['enable', 'disable']) {
           const res = await escalate(request, baseUrl, which, info.id, { trigger: 'manual' });
           const body = await res.text();
-          // 501, not 200: answering OK without having escalated is the defect CDDOS-2868 was
-          // raised for. When CDDOS-3009/3010 land, this expectation changes to 200 with per-site
-          // detail -- and that change is the signal the feature actually works.
-          expect(res.status(), body).toBe(501);
-          expect(body, 'the 501 must say what is missing, not just fail').toMatch(/CDDOS-3007/);
+          if (which === 'enable') {
+            // Temporary integration contract: this unblocks the Unified caller, but it must be
+            // impossible to mistake the acknowledgement for task submission or an escalation.
+            expect(res.status(), body).toBe(200);
+            const reply = JSON.parse(body);
+            expect(reply).toMatchObject({ reply: 'OK', simulated: true });
+            expect(reply.message).toMatch(/no tasks were submitted/i);
+          } else {
+            // Rollback remains intentionally unavailable until CDDOS-3010.
+            expect(res.status(), body).toBe(501);
+            expect(body, 'the 501 must say what is missing, not just fail').toMatch(/task construction and execution/i);
+          }
         }
       } finally {
         // --- put it back, whatever happened above
