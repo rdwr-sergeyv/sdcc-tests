@@ -83,6 +83,17 @@ function openIncidentId(assetId) {
   })()`);
 }
 
+/** The SCs this asset's open incident holds active (non-deactivated) diversions on. */
+function activeDiversionScs(assetId) {
+  return mongoJson(`(() => {
+    const i = db.Incidents.findOne({ asset: ObjectId('${assetId}'), endedAt: null });
+    if (!i) return [];
+    return (i.diversion || [])
+      .filter((d) => !(d.state || {}).deactivated)
+      .map((d) => (db.ScrubbingCenters.findOne({ _id: d.sc_id }) || {}).name);
+  })()`);
+}
+
 function buildTopology(info, dpCount) {
   let picked = 0;
   const devices = info.devices.map((d) => {
@@ -252,5 +263,70 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
         expect(deactivate.status(), await deactivate.text()).toBe(200);
         await waitFor(() => (READY.includes(assetStatus(info.id)) ? true : null), { timeoutMs: 120000 });
       }
+    });
+});
+
+// ---------------------------------------------------------------- CDDOS-3015
+
+test.describe('deactivating an escalated asset tears down both SCs', () => {
+  let info;
+
+  test.beforeAll(() => {
+    info = assetInfo(ASSET_NAME);
+    expect(READY, `test needs ${ASSET_NAME} undiverted, it is ${info.status}`).toContain(info.status);
+  });
+
+  test('an escalated asset can still go off-cloud, and leaves no active leg behind',
+    async ({ request }) => {
+      test.skip(process.env.ESCALATION_ALLOW_REAL_ESCALATE !== '1',
+        'Escalates for real. Deactivate is the fallback cleanup here, so if it works the asset '
+        + 'ends off-cloud; if it does not, that IS the CDDOS-3015 defect and the asset needs a '
+        + 'hand-written Mongo edit. Set ESCALATION_ALLOW_REAL_ESCALATE=1 to run it.');
+      const baseUrl = await login(request);
+
+      const activate = await request.post(`${baseUrl}/api/incident/`, {
+        data: {
+          asset: { _oid: info.id },
+          extended_assets_list: [],
+          action: 'activate',
+          type: 'build',
+          topology: buildTopology(info, 2),
+          userInput: { reason: 'Diversion Test', notes: 'CDDOS-3015 deactivate-while-escalated' },
+        },
+      });
+      expect(activate.status(), await activate.text()).toBe(200);
+      await waitFor(() => (DIVERTED.includes(assetStatus(info.id)) ? true : null), { timeoutMs: 120000 });
+
+      const enable = await escalate(request, baseUrl, 'enable', info.id, { trigger: 'manual' });
+      expect(enable.status(), await enable.text()).toBe(200);
+
+      // The escalate must have produced a SECOND active leg. Without this the rest of the test
+      // would pass on an asset that never escalated at all.
+      await waitFor(() => (activeDiversionScs(info.id).length >= 2 ? true : null), { timeoutMs: 120000 });
+      const escalated = activeDiversionScs(info.id);
+      expect(escalated.length,
+        `expected legs on the Original and the Escalation SC, got ${escalated.join(', ')}`)
+        .toBeGreaterThanOrEqual(2);
+
+      // --- off-cloud WITHOUT rolling back first. This is the CDDOS-3015 case: the teardown has to
+      // cover the Escalation SC's leg as well, and its DPs are in the Attack Zone -- the zone whose
+      // fallback closure is itself, which is what E-20 was about.
+      const deactivate = await request.post(`${baseUrl}/api/incident/`, {
+        data: {
+          asset: { _oid: info.id },
+          extended_assets_list: [],
+          action: 'deactivate',
+          type: 'build',
+          topology: buildTopology(info, 2),
+          userInput: { reason: 'Diversion Test Ended', notes: 'CDDOS-3015 deactivate-while-escalated' },
+        },
+      });
+      expect(deactivate.status(), await deactivate.text()).toBe(200);
+      await waitFor(() => (READY.includes(assetStatus(info.id)) ? true : null), { timeoutMs: 120000 });
+
+      // No leg may survive -- neither the Original SC's nor the Escalation SC's. A leftover leg is
+      // exactly the "asset cannot be activated normally afterwards" failure the story names.
+      expect(activeDiversionScs(info.id),
+        'an active diversion survived the deactivate').toEqual([]);
     });
 });
