@@ -30,6 +30,25 @@ if (!args.yes) {
   fail('Restore is destructive for the target database. Re-run with --yes when the target fixture name is correct.');
 }
 
+// A restore with no --collections is `mongorestore --drop` of the WHOLE database. That discards
+// everything the lab holds which the fixture predates -- as of 2026-08-16 the Escalation SC config
+// (sc_type / escalates_to), the site moves, and any live diversion someone is working with. The
+// failure mode is silent: you notice hours later when unrelated suites fail on data that used to
+// be there.
+//
+// --yes cannot gate this, because the automated callers pass it too. So a whole-database restore
+// additionally needs DP_ISOLATE_ALLOW_DB_RESTORE=1, which a test run will not have by accident.
+// Scoping the restore with --collections stays unguarded: that is the surgical, reviewable form.
+if (!resolveCollections(args).length && String(process.env.DP_ISOLATE_ALLOW_DB_RESTORE || '') !== '1') {
+  fail([
+    'Refusing a WHOLE-DATABASE restore of "' + name + '": it would drop the current lab state',
+    '(Escalation SC config, site moves, any live diversion).',
+    'Restore only what you need with --collections DPZones,Incidents,Tasks;',
+    'or refresh the fixture with: npm run dp-isolate-fixtures:capture;',
+    'or accept the loss with: DP_ISOLATE_ALLOW_DB_RESTORE=1',
+  ].join(' '));
+}
+
 ensureMongoContainer(args.container);
 
 const manifest = readManifest(name);

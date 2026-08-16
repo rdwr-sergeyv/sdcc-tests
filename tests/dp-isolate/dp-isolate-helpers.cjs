@@ -49,6 +49,10 @@ function run(command, args, options = {}) {
 
 function restoreReadyForTests() {
   const config = env();
+  // Restores the WHOLE sdcc database from the fixture. restore.cjs refuses this unless
+  // DP_ISOLATE_ALLOW_DB_RESTORE=1, because it discards whatever the lab holds that the fixture
+  // predates -- the Escalation SC config, the site moves, any live diversion. The asset ids in
+  // these specs come from the fixture, so they cannot be repointed without re-capturing it.
   run(process.execPath, [
     'tools/dp-isolate-fixtures/restore.cjs',
     'default',
