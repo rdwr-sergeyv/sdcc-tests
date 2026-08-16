@@ -34,7 +34,10 @@ const {
   waitFor,
 } = require('../dp-isolate/dp-isolate-helpers.cjs');
 
-const ASSET_NAME = process.env.RENDER_TEST_ASSET || 'asset_1';
+// asset_1 is NOT used here: it is reserved for a person (Amit) driving the Unified-side
+// integration against the lab. These suites activate and deactivate their asset, so they
+// need one nobody is holding. Override with the env var if that ever changes.
+const ASSET_NAME = process.env.RENDER_TEST_ASSET || 'asset_3';
 const ARTEFACT_ROOT = '/var/lib/sdcc/core/device_config';
 // The action gates in diversion.py:1988 -- an action is refused unless the asset status is in the
 // matching list. `activating` is in NEITHER, and it is the transient state right after an activate:

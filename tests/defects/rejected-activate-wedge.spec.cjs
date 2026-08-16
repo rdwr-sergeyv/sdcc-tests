@@ -28,7 +28,10 @@
 const { test, expect } = require('playwright/test');
 const { login, mongoEval, mongoJson, waitFor } = require('../dp-isolate/dp-isolate-helpers.cjs');
 
-const ASSET_NAME = process.env.DEFECT_TEST_ASSET || 'asset_1';
+// asset_1 is NOT used here: it is reserved for a person (Amit) driving the Unified-side
+// integration against the lab. These suites activate and deactivate their asset, so they
+// need one nobody is holding. Override with the env var if that ever changes.
+const ASSET_NAME = process.env.DEFECT_TEST_ASSET || 'asset_3';
 const INVALID_REASON = 'not-a-valid-reason';   // outside ACTIVATE_REASON (constants.py:112)
 
 test.describe.configure({ mode: 'serial', timeout: 180000 });

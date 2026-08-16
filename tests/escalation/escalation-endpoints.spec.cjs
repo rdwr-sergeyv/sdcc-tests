@@ -19,7 +19,10 @@
 const { test, expect } = require('playwright/test');
 const { login, mongoJson, waitFor } = require('../dp-isolate/dp-isolate-helpers.cjs');
 
-const ASSET_NAME = process.env.ESCALATION_TEST_ASSET || 'asset_1';
+// asset_1 is NOT used here: it is reserved for a person (Amit) driving the Unified-side
+// integration against the lab. These suites activate and deactivate their asset, so they
+// need one nobody is holding. Override with the env var if that ever changes.
+const ASSET_NAME = process.env.ESCALATION_TEST_ASSET || 'asset_3';
 const ABSENT_ID = '000000000000000000000000';
 const READY = ['off-cloud', 'activating_request'];
 const DIVERTED = ['on-cloud', 'pending', 'on-cloud-bGP-pending', 'deactivating-request'];
