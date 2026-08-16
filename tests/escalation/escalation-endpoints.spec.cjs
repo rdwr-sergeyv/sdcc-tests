@@ -4,15 +4,19 @@
 //   POST /api/incident/escalation/disable/<asset_id>   body {"trigger": "manual"|"auto"}
 //
 // WHY THIS EXISTS
-//   Enable is a temporary integration stub: after its final guards pass, it returns 200 with
-//   {reply: "OK", simulated: true} but creates no tasks, changes no state, and touches no device.
-//   This lets the Unified caller integrate without pretending traffic has moved. Disable remains
-//   501 until CDDOS-3010. The contract is pinned so the stub cannot silently become an unmarked
-//   false success while CDDOS-3009 implements the real action.
+//   Enable submits the real action as of CDDOS-3009; disable remains 501 until CDDOS-3010. The
+//   guards, the status codes and the shape of a refusal are what integration is written against,
+//   so they are pinned here.
 //
-// SAFETY
-//   The one test that needs a diverted asset activates with type=build, so no device is contacted,
-//   and deactivates in the same way afterwards.
+// SAFETY -- WHY THE SUCCESS CASE IS OPT-IN
+//   A successful escalate CANNOT BE UNDONE YET. Rollback is CDDOS-3010 (501) and deactivating an
+//   escalated diversion is CDDOS-3015, so an escalate run here would leave the lab holding a
+//   diversion at the Escalation SC that only a hand-written Mongo edit can clear. That is not a
+//   state an automated suite may create by default, so it is behind
+//   ESCALATION_ALLOW_REAL_ESCALATE=1. Everything up to the action runs unconditionally.
+//
+//   The rest of the suite activates with type=build, so no device is contacted, and deactivates in
+//   the same way afterwards.
 //
 // Run:  npx playwright test tests/escalation
 
@@ -180,8 +184,12 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
     expect(READY, `test needs ${ASSET_NAME} undiverted, it is ${info.status}`).toContain(info.status);
   });
 
-  test('every guard passes on an on-cloud asset, and enable returns the marked integration stub',
+  test('every guard passes on an on-cloud asset, and the action is submitted',
     async ({ request }) => {
+      test.skip(process.env.ESCALATION_ALLOW_REAL_ESCALATE !== '1',
+        'A successful escalate cannot be undone yet: rollback is CDDOS-3010 and deactivating an '
+        + 'escalated diversion is CDDOS-3015. Set ESCALATION_ALLOW_REAL_ESCALATE=1 to run it and '
+        + 'be ready to clear the Escalation SC leg by hand.');
       const baseUrl = await login(request);
 
       // --- divert it, build-only so no device is touched
@@ -204,16 +212,18 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
           const res = await escalate(request, baseUrl, which, info.id, { trigger: 'manual' });
           const body = await res.text();
           if (which === 'enable') {
-            // Temporary integration contract: this unblocks the Unified caller, but it must be
-            // impossible to mistake the acknowledgement for task submission or an escalation.
+            // Success carries NO detail about SCs, sites, diversions or incidents [decided
+            // 2026-08-16], and it means the tasks were SUBMITTED -- the call returns before they
+            // run, exactly as isolate does.
             expect(res.status(), body).toBe(200);
             const reply = JSON.parse(body);
-            expect(reply).toMatchObject({ reply: 'OK', simulated: true });
-            expect(reply.message).toMatch(/no tasks were submitted/i);
+            expect(reply).toMatchObject({ reply: 'OK' });
+            expect(reply.simulated, 'the integration stub is gone; a 200 is now a real submission')
+              .toBeUndefined();
           } else {
             // Rollback remains intentionally unavailable until CDDOS-3010.
             expect(res.status(), body).toBe(501);
-            expect(body, 'the 501 must say what is missing, not just fail').toMatch(/task construction and execution/i);
+            expect(body, 'the 501 must say what is missing, not just fail').toMatch(/rollback is pending/i);
           }
         }
       } finally {
