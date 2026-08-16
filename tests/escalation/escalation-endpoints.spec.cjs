@@ -3,17 +3,18 @@
 //   POST /api/incident/escalation/enable/<asset_id>    body {"trigger": "manual"|"auto"}
 //   POST /api/incident/escalation/disable/<asset_id>   body {"trigger": "manual"|"auto"}
 //
-// WHY THIS EXISTS
-//   Enable submits the real action as of CDDOS-3009; disable remains 501 until CDDOS-3010. The
-//   guards, the status codes and the shape of a refusal are what integration is written against,
-//   so they are pinned here.
+// WHY THIS EXISTS -- both endpoints
+//   Enable submits the real action as of CDDOS-3009, disable as of CDDOS-3010. The guards, the
+//   status codes and the shape of a refusal are what integration is written against, so they are
+//   pinned here.
 //
-// SAFETY -- WHY THE SUCCESS CASE IS OPT-IN
-//   A successful escalate CANNOT BE UNDONE YET. Rollback is CDDOS-3010 (501) and deactivating an
-//   escalated diversion is CDDOS-3015, so an escalate run here would leave the lab holding a
-//   diversion at the Escalation SC that only a hand-written Mongo edit can clear. That is not a
-//   state an automated suite may create by default, so it is behind
-//   ESCALATION_ALLOW_REAL_ESCALATE=1. Everything up to the action runs unconditionally.
+// SAFETY -- WHY THE ROUND TRIP IS STILL OPT-IN
+//   CDDOS-3010 made the escalate undoable, so the round trip below cleans up after itself. What it
+//   cannot recover from is a rollback that FAILS mid-way: deactivating an escalated diversion is
+//   CDDOS-3015 and does not exist, so a stranded escalation still needs a hand-written Mongo edit.
+//   Until the round trip has been exercised against the lab a few times, it stays behind
+//   ESCALATION_ALLOW_REAL_ESCALATE=1. Everything else -- every guard, and the 409 for rolling back
+//   an asset that never escalated -- runs unconditionally.
 //
 //   The rest of the suite activates with type=build, so no device is contacted, and deactivates in
 //   the same way afterwards.
@@ -132,9 +133,13 @@ test.describe('legacy escalation endpoints -- guard contract', () => {
     } else {
       test('disable: the trigger is accepted without being validated, as isolation does', async ({ request }) => {
         // Deliberate asymmetry, copied from isolation: only the enable side of each pair checks
-        // the trigger. Pinned so nobody "fixes" it into a 400 without deciding to diverge, and so
-        // the day CDDOS-3010 starts reading the trigger for the audit entry, this test fails and
-        // makes that a decision rather than an accident.
+        // the trigger. Pinned so nobody "fixes" it into a 400 without deciding to diverge.
+        //
+        // CDDOS-3010 now READS the trigger for the audit entry, which is the moment this comment
+        // used to point at. The decision taken [2026-08-16] was to keep accepting anything and
+        // record an unrecognised value as NO trigger, rather than reject it -- rejecting would
+        // break the alignment, and storing it would fail the model's own `choices` check and reach
+        // the operator as a 500. Still open: whether to validate here after all.
         const baseUrl = await login(request);
         const info = assetInfo(ASSET_NAME);
         for (const body of [{ trigger: 'whatever' }, {}]) {
@@ -184,12 +189,12 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
     expect(READY, `test needs ${ASSET_NAME} undiverted, it is ${info.status}`).toContain(info.status);
   });
 
-  test('every guard passes on an on-cloud asset, and the action is submitted',
+  test('every guard passes on an on-cloud asset, and escalate/rollback round-trips',
     async ({ request }) => {
       test.skip(process.env.ESCALATION_ALLOW_REAL_ESCALATE !== '1',
-        'A successful escalate cannot be undone yet: rollback is CDDOS-3010 and deactivating an '
-        + 'escalated diversion is CDDOS-3015. Set ESCALATION_ALLOW_REAL_ESCALATE=1 to run it and '
-        + 'be ready to clear the Escalation SC leg by hand.');
+        'The escalate/rollback round trip has not been exercised against the lab yet, and a '
+        + 'rollback that fails mid-way leaves an escalation only a Mongo edit can clear '
+        + '(CDDOS-3015 does not exist). Set ESCALATION_ALLOW_REAL_ESCALATE=1 to run it.');
       const baseUrl = await login(request);
 
       // --- divert it, build-only so no device is touched
@@ -208,24 +213,30 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
       expect(openIncidentId(info.id), 'an incident must be open for the escalate guards to pass').not.toBeNull();
 
       try {
-        for (const which of ['enable', 'disable']) {
-          const res = await escalate(request, baseUrl, which, info.id, { trigger: 'manual' });
-          const body = await res.text();
-          if (which === 'enable') {
-            // Success carries NO detail about SCs, sites, diversions or incidents [decided
-            // 2026-08-16], and it means the tasks were SUBMITTED -- the call returns before they
-            // run, exactly as isolate does.
-            expect(res.status(), body).toBe(200);
-            const reply = JSON.parse(body);
-            expect(reply).toMatchObject({ reply: 'OK' });
-            expect(reply.simulated, 'the integration stub is gone; a 200 is now a real submission')
-              .toBeUndefined();
-          } else {
-            // Rollback remains intentionally unavailable until CDDOS-3010.
-            expect(res.status(), body).toBe(501);
-            expect(body, 'the 501 must say what is missing, not just fail').toMatch(/rollback is pending/i);
-          }
-        }
+        // A diverted asset that has NOT escalated cannot roll back. 409, not 422: nothing
+        // disqualifies the asset, the caller asked to undo something that never happened. This
+        // runs before the escalate, so it is the one rollback assertion that changes no state.
+        const notEscalated = await escalate(request, baseUrl, 'disable', info.id, { trigger: 'manual' });
+        const notEscalatedBody = await notEscalated.text();
+        expect(notEscalated.status(), notEscalatedBody).toBe(409);
+        expect(notEscalatedBody).toMatch(/not escalated/i);
+
+        // --- escalate. Success carries NO detail about SCs, sites, diversions or incidents
+        // [decided 2026-08-16], and means the tasks were SUBMITTED: the call returns before they
+        // run, exactly as isolate does.
+        const enable = await escalate(request, baseUrl, 'enable', info.id, { trigger: 'manual' });
+        const enableBody = await enable.text();
+        expect(enable.status(), enableBody).toBe(200);
+        expect(JSON.parse(enableBody)).toMatchObject({ reply: 'OK' });
+        expect(JSON.parse(enableBody).simulated,
+          'the integration stub is gone; a 200 is now a real submission').toBeUndefined();
+
+        // --- and back. This is what makes the round trip self-cleaning; before CDDOS-3010 the
+        // escalate above could only be undone by hand.
+        const disable = await escalate(request, baseUrl, 'disable', info.id, { trigger: 'manual' });
+        const disableBody = await disable.text();
+        expect(disable.status(), disableBody).toBe(200);
+        expect(JSON.parse(disableBody)).toMatchObject({ reply: 'OK' });
       } finally {
         // --- put it back, whatever happened above
         const deactivate = await request.post(`${baseUrl}/api/incident/`, {
