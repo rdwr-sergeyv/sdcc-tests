@@ -58,6 +58,7 @@ function assetInfo(name) {
       mask: Number(a.mask) || 24,
       zoneId: String(account.zone),
       scId: String(sc._id),
+      scName: sc.name,
       devices: (sc.management_devices || [])
         .filter((d) => ['radware-defensepro', 'router-out', 'router-in'].includes(d.role))
         .map((d) => ({
@@ -81,6 +82,20 @@ function openIncidentId(assetId) {
     const i = db.Incidents.findOne({ asset: ObjectId('${assetId}'), endedAt: null });
     return i ? String(i._id) : null;
   })()`);
+}
+
+/** Wait until the incident is out of the scheduler's queue.
+ *
+ * Every action leaves `in_queue: true` and the Incident Aggregator releases it. Firing the next
+ * action before that gets "The previous action is in queue" -- a 500 from POST /api/incident/, and a
+ * 409 from the escalation endpoints. Measured on the lab 2026-08-16: the escalate's queue flag was
+ * still set 230ms later, so back-to-back calls are a race, not a valid sequence.
+ */
+async function waitForQueueToClear(assetId) {
+  await waitFor(() => (mongoJson(`(() => {
+    const i = db.Incidents.findOne({ asset: ObjectId('${assetId}'), endedAt: null });
+    return !i || i.in_queue !== true;
+  })()`) ? true : null), { timeoutMs: 120000 });
 }
 
 /** The SCs this asset's open incident holds active (non-deactivated) diversions on. */
@@ -242,12 +257,26 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
         expect(JSON.parse(enableBody).simulated,
           'the integration stub is gone; a 200 is now a real submission').toBeUndefined();
 
+        // The escalate's tasks have to leave the queue before anything else may act on this
+        // incident, and asserting the leg appeared proves the escalate did more than answer 200.
+        await waitForQueueToClear(info.id);
+        expect(activeDiversionScs(info.id).length,
+          'the escalate returned 200 but produced no leg at an Escalation SC')
+          .toBeGreaterThanOrEqual(2);
+
         // --- and back. This is what makes the round trip self-cleaning; before CDDOS-3010 the
         // escalate above could only be undone by hand.
         const disable = await escalate(request, baseUrl, 'disable', info.id, { trigger: 'manual' });
         const disableBody = await disable.text();
         expect(disable.status(), disableBody).toBe(200);
         expect(JSON.parse(disableBody)).toMatchObject({ reply: 'OK' });
+
+        // Same again, and the assertion that matters: a 200 from the rollback must mean the
+        // Escalation SC's leg is gone, not merely that the call returned.
+        await waitForQueueToClear(info.id);
+        expect(activeDiversionScs(info.id),
+          'the rollback returned 200 but left the Escalation SC leg active')
+          .toEqual([info.scName]);
       } finally {
         // --- put it back, whatever happened above
         const deactivate = await request.post(`${baseUrl}/api/incident/`, {
@@ -307,6 +336,7 @@ test.describe('deactivating an escalated asset tears down both SCs', () => {
       expect(escalated.length,
         `expected legs on the Original and the Escalation SC, got ${escalated.join(', ')}`)
         .toBeGreaterThanOrEqual(2);
+      await waitForQueueToClear(info.id);
 
       // --- off-cloud WITHOUT rolling back first. This is the CDDOS-3015 case: the teardown has to
       // cover the Escalation SC's leg as well, and its DPs are in the Attack Zone -- the zone whose
