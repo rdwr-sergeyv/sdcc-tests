@@ -51,3 +51,9 @@ logs/
 Thumbs.db
 .idea/
 *.zip
+
+# Playwright run output — artefacts, not source. `.last-run.json` was tracked by
+# accident and rewrote itself on every run, so a passing local run showed up as a
+# diff (and a failing one as a checked-in failure).
+test-results/
+playwright-report/
