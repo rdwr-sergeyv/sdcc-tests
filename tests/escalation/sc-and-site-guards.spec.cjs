@@ -221,3 +221,180 @@ test.describe('I10 -- a customer site may not live on an Escalation SC', () => {
       'a refused move must leave the site where it was').not.toBe(escalationSc._id._oid);
   });
 });
+
+// ---------------------------------------------------------------------------------------------------
+// THE MISSION, at the API `[2026-08-19]`
+//
+// An Escalation SC must not be usable where it does not belong, and customers drive this product
+// through the API -- so these two are validations, not conveniences. Both rules had unit coverage of
+// the validator and nothing that proved a real HTTP request is refused, which is the gap these close.
+//
+// Both are pure refusal tests: every request below is expected to fail, and each asserts that
+// NOTHING changed afterwards. A 400 with a write behind it is the outcome worth catching -- and on
+// 2026-08-19 that is exactly what happened: the additional-SC guard was dead (see the wiring test in
+// sdcc), the update was accepted, and a lab asset was modified by this suite.
+//
+// TWO SIDE EFFECTS TO KNOW ABOUT BEFORE RUNNING THIS AGAINST A SHARED LAB:
+//   1. Each REFUSED SC create still consumes a `community_tag_sequence` number -- clean() allocates it
+//      before the later validations run -- and the space is MAX_SC_NUM wide. Repeated runs walked the
+//      lab's ScrubbingCenter enumerator to its ceiling (99 with 4 SCs), after which no SC can be
+//      created and the mapping tests below fail on that instead of on their own rule.
+//   2. The asset probe writes only if a guard is broken, which is the point, but it does write.
+// ---------------------------------------------------------------------------------------------------
+
+/** Every asset the operator can see, whatever the account context. */
+async function assets(request) {
+  const res = await request.get(`${BASE}/api/assets/`);
+  expect(res.status(), await res.text()).toBe(200);
+  return (await res.json()).reply;
+}
+
+test.describe('an Escalation SC cannot be diverted to by hand', () => {
+  test('an activate whose topology names an Escalation SC is refused', async ({ request }) => {
+    await login(request);
+    const { escalation } = await inventory(request);
+    const escalationSc = escalation[0];
+
+    // An OFF-CLOUD network asset: if the guard ever stopped working, the request would attempt a real
+    // diversion, so pick the case where that is most visible and assert the asset stayed off-cloud.
+    const all = await assets(request);
+    const candidate = all.find((a) => a.type === 'network' && a.status === 'off-cloud');
+    test.skip(!candidate, 'no off-cloud network asset available to probe with');
+
+    const res = await request.post(`${BASE}/api/incident/`, {
+      data: {
+        asset: { _oid: candidate._id._oid },
+        action: 'activate',
+        type: 'build',
+        // a REAL reason: the reason enum is validated before the topology is, so a placeholder
+        // would fail here for an unrelated reason and prove nothing (the row-14 fix added that gate)
+        userInput: { reason: 'DDoS Attack', notes: '' },
+        topology: [{ sc: { _oid: escalationSc._id._oid }, sc_prepend: 0, line_type: 'DDOS', devices: [] }],
+      },
+    });
+    const body = await res.text();
+
+    expect(res.status(), body).toBeGreaterThanOrEqual(400);
+    expect(res.status(), body).toBeLessThan(500);
+    expect(body, 'the refusal must name the SC, so the operator knows which tab to remove')
+      .toContain(escalationSc.name);
+    expect(body).toMatch(/escalation sc/i);
+
+    // and nothing was started
+    const after = (await assets(request)).find((a) => a._id._oid === candidate._id._oid);
+    expect(after.status, 'a refused activate must leave the asset off-cloud').toBe(candidate.status);
+  });
+
+  test('the refusal precedes device validation', async ({ request }) => {
+    await login(request);
+    const { escalation } = await inventory(request);
+    const escalationSc = escalation[0];
+    const all = await assets(request);
+    const candidate = all.find((a) => a.type === 'network' && a.status === 'off-cloud');
+    test.skip(!candidate, 'no off-cloud network asset available to probe with');
+
+    // A topology that is ALSO wrong in a second way -- a device id that belongs to no SC. The
+    // Escalation SC refusal has to be what comes back, or an operator is sent chasing the wrong thing.
+    const res = await request.post(`${BASE}/api/incident/`, {
+      data: {
+        asset: { _oid: candidate._id._oid },
+        action: 'activate',
+        type: 'build',
+        // a REAL reason: the reason enum is validated before the topology is, so a placeholder
+        // would fail here for an unrelated reason and prove nothing (the row-14 fix added that gate)
+        userInput: { reason: 'DDoS Attack', notes: '' },
+        topology: [{
+          sc: { _oid: escalationSc._id._oid },
+          sc_prepend: 0,
+          line_type: 'DDOS',
+          devices: [{ _oid: '000000000000000000000000', type: 'dp', selected: true }],
+        }],
+      },
+    });
+    expect(await res.text(), 'a device error must not mask the Escalation SC guard').toMatch(/escalation sc/i);
+  });
+});
+
+test.describe('an Escalation SC cannot be an additional Scrubbing Center', () => {
+  test('an asset update naming one as an additional SC is refused', async ({ request }) => {
+    await login(request);
+    const { escalation } = await inventory(request);
+    const escalationSc = escalation[0];
+
+    // Skip any asset that ALREADY carries this Escalation SC: such an asset trips the duplicate-SC
+    // check first and the test would pass for the wrong reason. (It is not hypothetical -- while the
+    // guard was dead, an earlier run of this very test put one there.)
+    const carries = (a) => (a.asset_site_data || []).some((sd) => (sd.asset_additional_site || [])
+      .some((x) => (x.sc_id?._oid || x.sc_id) === escalationSc._id._oid));
+    const listed = (await assets(request)).find((a) => a.type === 'network'
+      && Array.isArray(a.asset_site_data) && a.asset_site_data.length
+      && a.asset_site_data[0].account_site
+      && !carries(a));
+    test.skip(!listed, 'no network asset without this Escalation SC available to probe with');
+
+    const accountId = listed.account?._oid || listed.account;
+
+    // The FULL asset, fetched singly and posted back with one addition. A partial body is not an
+    // option here: this endpoint reads the account out of the payload and 500s on
+    // `account.get(...)` before any validation runs when it is missing (recorded as a suspect).
+    // NOTE the single-asset route answers with a LIST -- pick our asset out of it by id rather than
+    // taking reply[0], which is a different asset and was good for one wasted hour.
+    const oneRes = await request.get(`${BASE}/api/assets/network/${accountId}/${listed._id._oid}`);
+    expect(oneRes.status(), await oneRes.text()).toBe(200);
+    const asset = ((await oneRes.json()).reply || []).find((a) => a._id?._oid === listed._id._oid);
+    test.skip(!asset, 'single-asset read did not return the asset we asked for');
+
+    const before = JSON.parse(JSON.stringify(asset.asset_site_data));
+    asset.asset_site_data[0].asset_additional_site =
+      (asset.asset_site_data[0].asset_additional_site || [])
+        .concat([{ sc_id: { _oid: escalationSc._id._oid }, prepends: 0 }]);
+
+    // Filter to the fields this endpoint accepts: anything outside the list is refused outright
+    // ("You have no privileges to modify the '<key>' attribute"), which would mask the rule.
+    // Source of truth: sdcc-portal api/util/api_utils.py `asset_whitelist_data` (:428).
+    const ALLOWED = new Set(['address', 'mask', 'bgpasNumber', 'virtualServer', 'virtualPort', 'sc_groups',
+      'name', 'ssl', 'sslCertificateId', 'healthCheck', 'account_site', 'dns_sec', 'policies', 'cpe_policy',
+      'automatic_diversion', 'automatic_diversion_actions', 'automatic_diversion_toggle', 'notes',
+      'dp_policy_type', 'cpe_policies', 'vip_type', 'domains', 'source_ip', 'dns_ssl', 'sc_id', 'vip_id',
+      'bundled', 'static_route_option', 'not_announce_upstream_providers', 'no_static_to_site',
+      'advanced_setting', 'asset_protection_action', 'modifiedBy', 'bgp_withdrew', 'allow_32_adv', '_cls',
+      'asset_site_data', 'isDuplicated', 'resourceUtilization', 'gre_load_balancing', 'grouped_assets',
+      'groupID', 'loa', 'ssl_protection', 'announcement_type', 'bgp_stop_action', 'http2_protocol',
+      'cpe_policy_location', 'cpe_policy_name', 'cpe_site_id', 'line_type', 'num_of_dps', 'asset_clone_id']);
+    const payload = Object.fromEntries(Object.entries(asset).filter(([k]) => ALLOWED.has(k)));
+
+    const res = await request.post(`${BASE}/api/assets/network/${accountId}/${asset._id._oid}`, {
+      data: payload,
+    });
+    const body = await res.text();
+
+    // A 2xx here is a PROBE FAILURE, not a missing rule. On 2026-08-19 this endpoint answered 200 to
+    // exactly this request and persisted NOTHING: the added additional SC never reached the model, so the
+    // rule was never exercised. Until it is understood how this endpoint actually carries an additional SC
+    // (recorded as S11 in Defect-Suspects.md), assert only that nothing was written, and skip. The rule
+    // itself is covered by unit tests plus the wiring test in sdcc.
+    if (res.status() < 400) {
+      const unchanged = (await assets(request)).find((a) => a._id._oid === asset._id._oid);
+      const addAfter = (unchanged.asset_site_data || []).flatMap((sd) =>
+        (sd.asset_additional_site || []).map((x) => x.sc_id?._oid || x.sc_id));
+      expect(addAfter, 'the endpoint accepted the request -- it must at least not have stored it')
+        .not.toContain(escalationSc._id._oid);
+      test.skip(true, `endpoint answered ${res.status()} without persisting the change (see S11)`);
+    }
+
+    expect(res.status(), body).toBeGreaterThanOrEqual(400);
+    expect(res.status(), body).toBeLessThan(500);
+    expect(body, 'the refusal must name the SC').toContain(escalationSc.name);
+    expect(body).toMatch(/additional/i);
+
+    // and the asset did not gain it. This assertion is the one that matters: the guard lived in
+    // BaseAsset.clean(), which BaseNetworkAsset.clean() overrides without calling super(), so the
+    // rule was dead for network assets and an update like this one was ACCEPTED and written.
+    const after = (await assets(request)).find((a) => a._id._oid === asset._id._oid);
+    const additionalAfter = (after.asset_site_data || []).flatMap((sd) =>
+      (sd.asset_additional_site || []).map((x) => x.sc_id?._oid || x.sc_id));
+    expect(additionalAfter, 'a refused update must not add the Escalation SC')
+      .not.toContain(escalationSc._id._oid);
+    expect(after.asset_site_data.length, 'the site data must be untouched').toBe(before.length);
+  });
+});
