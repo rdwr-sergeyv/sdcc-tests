@@ -178,6 +178,26 @@ test.describe('I10 -- a customer site may not live on an Escalation SC', () => {
     expect(body, 'the reason should be the missing customer GRE, not a generic refusal').toMatch(/escalation sc/i);
   });
 
+  test('refused whichever field carries the SC (site_sc or sc_id)', async ({ request }) => {
+    await login(request);
+    // The portal UI sends BOTH: sdcc-sitesEditDrct.js sets site_sc from sc_id before saving. But `sc_id`
+    // is the field `process_account_site_data` consumes, so an API client can legitimately send only that
+    // -- and reading site_sc alone left such a caller to the document backstop, which refuses correctly
+    // but surfaced as a 500. Both shapes must give the same actionable 400.
+    const base = {
+      devices: [], gre_info: [], defense_flows: [],
+      resource_utilization: { latency: [] }, site_connection_type: 'gre',
+    };
+    for (const shape of ['site_sc', 'sc_id']) {
+      const data = Object.assign({ site_name: `zz-esc-${shape}` }, base);
+      data[shape] = escalationSc._id._oid;
+      const res = await request.post(`${BASE}/api/site/${accountId}`, { data });
+      const body = await res.text();
+      expect(res.status(), `${shape}: ${body}`).toBe(400);
+      expect(body, `${shape} must name the SC`).toContain(escalationSc.name);
+    }
+  });
+
   test('the guard runs before the other validations', async ({ request }) => {
     await login(request);
     // The account is at its site limit, which used to fire first and hide this guard entirely.
