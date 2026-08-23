@@ -215,7 +215,7 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
     expect(READY, `test needs ${ASSET_NAME} undiverted, it is ${info.status}`).toContain(info.status);
   });
 
-  test('every guard passes on an on-cloud asset, and escalate/rollback round-trips',
+  test('every guard passes, an Update while escalated is refused, and escalate/rollback round-trips',
     async ({ request }) => {
       test.skip(process.env.ESCALATION_ALLOW_REAL_ESCALATE !== '1',
         'The escalate/rollback round trip has not been exercised against the lab yet, and a '
@@ -262,6 +262,50 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
         await waitForQueueToClear(info.id);
         expect(activeDiversionScs(info.id).length,
           'the escalate returned 200 but produced no leg at an Escalation SC')
+          .toBeGreaterThanOrEqual(2);
+
+        // --- CDDOS-3014: while escalated, an Update must be REFUSED with 409.
+        //
+        // This is the only point in the suite where a genuinely escalated asset exists, so the
+        // assertion belongs here rather than in a test that would have to escalate a second time.
+        // "Escalated" is derived from where the active legs are (is_escalated), never from a stored
+        // flag, which is why it cannot be faked by setting a field and has to be checked here.
+        //
+        // An Update arrives as POST /api/incident/<id> with action=update -- the same handler as
+        // create, distinguished by the resource id (sdcc-diversionsCtrl.js: "id if update").
+        const escalatedIncidentId = openIncidentId(info.id);
+        const blockedUpdate = await request.post(`${baseUrl}/api/incident/${escalatedIncidentId}`, {
+          data: {
+            asset: { _oid: info.id },
+            extended_assets_list: [],
+            action: 'update',
+            type: 'build',
+            topology: buildTopology(info, 2),
+            userInput: { reason: 'Diversion Test', notes: 'update while escalated' },
+          },
+        });
+        const blockedBody = await blockedUpdate.text();
+        expect(blockedUpdate.status(), blockedBody).toBe(409);
+        expect(blockedBody).toMatch(/escalat/i);
+
+        // 409 on STATE, before the payload is validated. A deliberately broken topology would be a
+        // 400 from validate_user_request_topology if the guard ran after it, so this pins the order
+        // rather than merely the status code.
+        const blockedGarbage = await request.post(`${baseUrl}/api/incident/${escalatedIncidentId}`, {
+          data: {
+            asset: { _oid: info.id },
+            extended_assets_list: [],
+            action: 'update',
+            type: 'build',
+            topology: [{ sc: 'not-an-oid', devices: 'nonsense' }],
+            userInput: { reason: 'Diversion Test', notes: 'update while escalated' },
+          },
+        });
+        expect(blockedGarbage.status(), await blockedGarbage.text()).toBe(409);
+
+        // A refusal must change nothing: the escalation still stands after both attempts.
+        expect(activeDiversionScs(info.id).length,
+          'a refused Update must not have torn down the escalation')
           .toBeGreaterThanOrEqual(2);
 
         // --- and back. This is what makes the round trip self-cleaning; before CDDOS-3010 the
