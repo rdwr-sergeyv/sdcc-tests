@@ -18,6 +18,17 @@
 //   the worst outcome and the one worth catching. The SC probes use create (not update of a real
 //   SC) so a bug cannot damage lab data.
 //
+//   THAT HOLDS ONLY AGAINST A BUILD THAT HAS THE GUARDS. "Refused" is a property of the portal
+//   these run against, not of this file. Point them at a build where a guard is missing and the
+//   write SUCCEEDS -- the suite stops being a check and becomes a data-mutating script, and the
+//   failure you read on screen arrives together with a change you did not.
+//     2026-08-25: run against 8000 (the pre-merge feature tip) as a control, the additional-SC
+//     test below was accepted and STORED -- Escalation SC NEW-LAB landed in asset_ip6's
+//     asset_site_data[].asset_additional_site, and undoing it took a $pull against Mongo. The
+//     skip in that test exists because of an EARLIER instance of the same thing.
+//   So: for a control run, expect writes and plan the cleanup, and check the database afterwards
+//   whatever the statuses said. docs/kb/runbooks/lab-stack-reference.md 2b has the query.
+//
 // Run (no docker needed, HTTP only -- works from the lab host or a laptop on VPN):
 //   cd sdcc-tests
 //   SDCC_PORTAL_PUBLIC_URL=http://10.20.4.20:8000 npx playwright test tests/escalation/sc-and-site-guards.spec.cjs
