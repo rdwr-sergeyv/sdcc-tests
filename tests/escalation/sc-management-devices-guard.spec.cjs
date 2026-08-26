@@ -113,6 +113,28 @@ test.describe('management_devices on the SC API', () => {
     expect(after, 'a refused update must not remove the SC').toBeTruthy();
   });
 
+  test('update with an explicit null is refused too', async ({ request }) => {
+    await login(request);
+    expect(probeId).toBeTruthy();
+
+    // null says what omitting the key says -- `add_sc_devices` gates on `is not None`, so both mean
+    // "leave the list alone". A guard keyed on the key's PRESENCE would let this through, and
+    // `data.get(key, [])` returns the stored None rather than the default, so it reached
+    // `for dev in devices` and raised TypeError: the same 500, by a second route.
+    const res = await request.post(`${BASE}/api/sc/${probeId}`, {
+      data: {
+        name: PROBE_NAME, abbreviation: 'ZZM', backend: { _oid: backendOid },
+        management_devices: null, ip_networks: [],
+      },
+    });
+    const body = await res.text();
+    expect(res.status(), `expected a client error, got: ${body}`).toBe(400);
+    expect(body).toContain('Management devices list required');
+
+    const after = await probe(request);
+    expect(after, 'a refused update must not remove the SC').toBeTruthy();
+  });
+
   test('update WITH an explicit empty list is accepted', async ({ request }) => {
     await login(request);
     expect(probeId).toBeTruthy();
