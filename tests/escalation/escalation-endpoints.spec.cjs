@@ -9,12 +9,14 @@
 //   pinned here.
 //
 // SAFETY -- WHY THE ROUND TRIP IS STILL OPT-IN
-//   CDDOS-3010 made the escalate undoable, so the round trip below cleans up after itself. What it
-//   cannot recover from is a rollback that FAILS mid-way: deactivating an escalated diversion is
-//   CDDOS-3015 and does not exist, so a stranded escalation still needs a hand-written Mongo edit.
-//   Until the round trip has been exercised against the lab a few times, it stays behind
-//   ESCALATION_ALLOW_REAL_ESCALATE=1. Everything else -- every guard, and the 409 for rolling back
-//   an asset that never escalated -- runs unconditionally.
+//   CDDOS-3010 made the escalate undoable and CDDOS-3015 the deactivate, so the round trip below
+//   cleans up after itself and has a fallback if it does not. Both were exercised green against
+//   the lab on 2026-08-26, ending with the asset off-cloud and no open incident.
+//   The flag therefore guards against running a real escalate UNINTENTIONALLY -- these touch a
+//   shared lab asset and take a couple of minutes -- rather than against an unproven path. What
+//   it still cannot recover from is a rollback AND a deactivate both failing, which leaves an
+//   escalation to clear by hand. Everything else -- every guard, the 409 for rolling back an asset
+//   that never escalated, and the CDDOS-3325 over-fire check -- runs unconditionally.
 //
 //   The rest of the suite activates with type=build, so no device is contacted, and deactivates in
 //   the same way afterwards.
@@ -205,6 +207,31 @@ test.describe('legacy escalation endpoints -- guard contract', () => {
   }
 });
 
+// ------------------------------------------------- CDDOS-3325: the stack guard does not over-fire
+
+// The refusals themselves need a genuinely escalated asset and live in the opt-in round trip below.
+// This one is the other side of the same guard and costs nothing: with no escalation anywhere, a
+// de-isolate must still be refused by the ORDINARY check, not by the new one. It is the assertion
+// that would catch a guard keyed on the wrong thing -- a bug that would otherwise be invisible until
+// somebody could not de-isolate an asset that had never escalated.
+test.describe('CDDOS-3325 -- the isolation/escalation stack guard', () => {
+  test('a de-isolate with no escalation is refused for the ordinary reason', async ({ request }) => {
+    const baseUrl = await login(request);
+    const info = assetInfo(ASSET_NAME);
+
+    const res = await request.post(
+      `${baseUrl}/api/incident/isolation/disable/${info.id}`, { data: {} });
+    const body = await res.text();
+
+    // 404 when the asset carries no open incident, 409 when it does but nothing is isolated --
+    // which of the two depends on whether another suite left it diverted, and neither is the
+    // escalation refusal. That is the whole assertion.
+    expect([404, 409], body).toContain(res.status());
+    expect(body, 'the escalation guard must not fire for an asset that is not escalated')
+      .not.toMatch(/escalat/i);
+  });
+});
+
 // ---------------------------------------------------------------- the guard chain end to end
 
 test.describe('legacy escalation endpoints -- a diverted asset reaches the action', () => {
@@ -218,9 +245,12 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
   test('every guard passes, an Update while escalated is refused, and escalate/rollback round-trips',
     async ({ request }) => {
       test.skip(process.env.ESCALATION_ALLOW_REAL_ESCALATE !== '1',
-        'The escalate/rollback round trip has not been exercised against the lab yet, and a '
-        + 'rollback that fails mid-way leaves an escalation only a Mongo edit can clear '
-        + '(CDDOS-3015 does not exist). Set ESCALATION_ALLOW_REAL_ESCALATE=1 to run it.');
+        'Escalates and rolls back for real, against whatever portal SDCC_PORTAL_PUBLIC_URL '
+        + 'names. Exercised green on the lab 2026-08-26 and self-cleaning -- the asset ended '
+        + 'off-cloud with no open incident -- so the flag now guards against running it '
+        + 'unintentionally, not against an unproven path. A rollback failing mid-way still '
+        + 'leaves an escalation to clear by hand, and CDDOS-3015 (deactivate teardown) is now '
+        + 'the fallback for that. Set ESCALATION_ALLOW_REAL_ESCALATE=1 to run it.');
       const baseUrl = await login(request);
 
       // --- divert it, build-only so no device is touched
@@ -263,6 +293,30 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
         expect(activeDiversionScs(info.id).length,
           'the escalate returned 200 but produced no leg at an Escalation SC')
           .toBeGreaterThanOrEqual(2);
+
+        // --- CDDOS-3325: while escalated, neither half of isolation may run.
+        //
+        // Isolation and escalation stack, escalation on top, and only the top may be undone. Both
+        // refusals are asserted here for the same reason as the Update below: this is the only
+        // point where a genuinely escalated asset exists.
+        //
+        // De-isolate would pop the level UNDERNEATH one still held. Since the two-phase cascade was
+        // rejected, de-escalate and de-isolate are separate requests with nothing sequencing them,
+        // so the Unified portal can send them in either order and this one has to fail.
+        const blockedDeisolate = await request.post(
+          `${baseUrl}/api/incident/isolation/disable/${info.id}`, { data: {} });
+        const deisolateBody = await blockedDeisolate.text();
+        expect(blockedDeisolate.status(), deisolateBody).toBe(409);
+        expect(deisolateBody).toMatch(/escalat/i);
+
+        // Isolate would push a level BELOW the one already held -- containment the asset has, and an
+        // effect on the escalated legs nobody has traced. The agreed flow is de-escalate, then
+        // isolate.
+        const blockedIsolate = await request.post(
+          `${baseUrl}/api/incident/isolation/enable/${info.id}`, { data: { trigger: 'manual' } });
+        const isolateBody = await blockedIsolate.text();
+        expect(blockedIsolate.status(), isolateBody).toBe(409);
+        expect(isolateBody).toMatch(/escalat/i);
 
         // --- CDDOS-3014: while escalated, an Update must be REFUSED with 409.
         //
@@ -321,6 +375,17 @@ test.describe('legacy escalation endpoints -- a diverted asset reaches the actio
         expect(activeDiversionScs(info.id),
           'the rollback returned 200 but left the Escalation SC leg active')
           .toEqual([info.scName]);
+
+        // CDDOS-3325: the guard is keyed on BEING escalated, not on having been. With the top of
+        // the stack popped, a de-isolate is refused by the ordinary 'nothing is isolated' check
+        // again -- so the refusal released rather than becoming permanent. Asserting the message
+        // rather than the status, since both cases answer 409.
+        const releasedDeisolate = await request.post(
+          `${baseUrl}/api/incident/isolation/disable/${info.id}`, { data: {} });
+        const releasedBody = await releasedDeisolate.text();
+        expect(releasedDeisolate.status(), releasedBody).toBe(409);
+        expect(releasedBody, 'after the rollback the refusal must no longer be the escalation one')
+          .toMatch(/not in isolated state/i);
       } finally {
         // --- put it back, whatever happened above
         const deactivate = await request.post(`${baseUrl}/api/incident/`, {
@@ -352,9 +417,11 @@ test.describe('deactivating an escalated asset tears down both SCs', () => {
   test('an escalated asset can still go off-cloud, and leaves no active leg behind',
     async ({ request }) => {
       test.skip(process.env.ESCALATION_ALLOW_REAL_ESCALATE !== '1',
-        'Escalates for real. Deactivate is the fallback cleanup here, so if it works the asset '
-        + 'ends off-cloud; if it does not, that IS the CDDOS-3015 defect and the asset needs a '
-        + 'hand-written Mongo edit. Set ESCALATION_ALLOW_REAL_ESCALATE=1 to run it.');
+        'Escalates for real, then relies on deactivate as the cleanup. Verified on the lab '
+        + '2026-08-26: the teardown works and the asset ends off-cloud, so CDDOS-3015 is '
+        + 'delivered rather than a defect being probed here. If deactivate ever stops '
+        + 'tearing both SCs down, the asset needs a hand-written Mongo edit. Set '
+        + 'ESCALATION_ALLOW_REAL_ESCALATE=1 to run it.');
       const baseUrl = await login(request);
 
       const activate = await request.post(`${baseUrl}/api/incident/`, {
