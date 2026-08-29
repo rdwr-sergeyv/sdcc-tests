@@ -1,0 +1,59 @@
+# Declared violations -- design decision D6 (docs/tasks/lab-profiles/Design.md).
+#
+# A violation listed here is ACCEPTED for this lab, with its reason. Anything not listed is unexpected and
+# fails the run. The point of declaring rather than downgrading a severity: a violation that STOPS
+# occurring is reported as drift, so a fixture that quietly stops being deliberate cannot hide for ever.
+#
+# This file will fold into the profile once profiles exist. It is standalone now so `validate` is usable
+# before any switching machinery is built (Design §8).
+#
+#   docker cp lab/expected-violations.yaml legacy-portal-portal-1:/tmp/expected.yaml
+#   docker exec legacy-portal-portal-1 python /tmp/lab_validate.py --expect /tmp/expected.yaml
+#
+# Each entry needs `reason` to say WHETHER THE CAUSE IS ESTABLISHED. "deliberate" and "known but
+# unexplained" are different states, and collapsing them is how an accident becomes a fixture by habit.
+
+expected_violations:
+
+  - id: ESC-SC-DP-ZONE
+    target: "NEW-LAB/LAB4-DP-3"
+    # DELIBERATE, and traceable: lab/plans/LAB.yaml declares this DP with `zone: default` inside the
+    # Escalation SC. It is the broken environment that proves CDDOS-3009's DP filtering really filters --
+    # if escalation ever selected it, the filter is not working.
+    reason: "deliberate fixture, declared in lab/plans/LAB.yaml -- a default-zone DP in the Escalation SC proves the attack-zone filter filters"
+
+  - id: DP-WIRED
+    target: "NEW-LAB-2/LAB-FAIL-D"
+    # ACCEPTED, CAUSE NOT ESTABLISHED. The name says failure fixture and it has been unwired for as long
+    # as it has been looked at, but nothing declares that: lab/plans/*.yaml declare devices and NO
+    # interfaces at all, so the wiring lives only in the DB and cannot be re-derived from a plan. Which
+    # is itself an input to the profile design -- the fabric layer has to own interfaces, or a
+    # reallocation leaves DPs unreachable in exactly the silent way CSP-969 and E-27 already showed.
+    reason: "accepted, not proven deliberate -- unwired DP; the plans declare no interfaces, so this cannot be checked against a plan. Revisit when the fabric layer owns wiring"
+
+  # ----------------------------------------------------------------------------------------------------
+  # THE S14 REPRODUCER, kept on purpose `[2026-08-23]`
+  #
+  # `meir_polisy_site_broken` sits on NEW-LAB-2 while its only tunnel points at **NEW-LAB's** LAB-AR-3.
+  # That is the exact shape of suspect S14: allocate_router_out_automatic_topology drops a gre_device_uid
+  # it cannot resolve in the diverting SC, so the diversion activates with DPs, edge routers and NO
+  # access router -- and reports success. It was reproduced from the UI on 2026-08-22.
+  #
+  # The other five affected sites were repaired (tools/lab_repair_gre.py). This one is kept, and renamed
+  # so nobody mistakes it for healthy data. Repairing all six would have destroyed the only way to
+  # reproduce the suspect, and S14's eventual fix needs something to be tested against.
+  #
+  # ALL FOUR consequences are declared, not just the headline one. A half-declared fixture is worse than
+  # none: the undeclared half reads as a real regression on every run.
+
+  - id: GRE-TUNNEL-SC
+    target: "meir_polisy_site_broken"
+    reason: "DELIBERATE: the S14 reproducer -- a site whose tunnel points into another SC, so an automatic diversion selects no router-out and still reports success"
+
+  - id: GRE-NET-OWNER
+    target: "meir_polisy_site_broken"
+    reason: "part of the S14 reproducer -- 10.15.2.16/30 stays booked to NEW-LAB, so the fixture is one coherent decision rather than a half-repaired mixture"
+
+  - id: GRE-BOOKING
+    target: "NEW-LAB/LAB-AR-3 [2d83ea]"
+    reason: "part of the S14 reproducer -- the tunnel it serves belongs to a NEW-LAB-2 site, so the NEW-LAB-2 ledger cannot book it and NEW-LAB's own booking matches no site of its own"
