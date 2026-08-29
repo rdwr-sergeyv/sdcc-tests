@@ -34,6 +34,7 @@
 //   SDCC_PORTAL_PUBLIC_URL=http://10.20.4.20:8000 npx playwright test tests/escalation/sc-and-site-guards.spec.cjs
 
 const { test, expect } = require('playwright/test');
+const { captureScSequence } = require('./sc-sequence.cjs');
 
 const BASE = process.env.SDCC_PORTAL_PUBLIC_URL || 'http://localhost:8000';
 const USER = process.env.PORTAL_USER || 'twister@example.com';
@@ -41,6 +42,16 @@ const PASSWORD = process.env.PORTAL_PASSWORD || 'd0sattack';
 const PROBE_NAME = 'ZZ_ESC_GUARD_PROBE';
 
 test.describe.configure({ mode: 'serial', timeout: 120000 });
+
+// This file is the heaviest consumer of the SC sequence counter, and not because of what it
+// creates -- because of what it gets REFUSED. `ScrubbingCenter.clean()` takes the next number off
+// the global `Enumerators` counter before `_validate_escalation_mapping()` rejects the document, so
+// each deliberately-refused create here burns one for good. Six or so per run, against a ceiling of
+// MAX_SC_NUM = 99 that is compared to the counter and not to the number of SCs. See
+// sc-sequence.cjs; the lab hit that ceiling on 2026-08-29 with four SCs in existence.
+let scSeq = null;
+test.beforeAll(() => { scSeq = captureScSequence(); });
+test.afterAll(() => { if (scSeq) scSeq.restore(); });
 
 async function login(request) {
   const res = await request.post(`${BASE}/api/auth/`, { data: { u: USER, p: PASSWORD } });

@@ -37,6 +37,7 @@
 //   SDCC_PORTAL_PUBLIC_URL=http://10.20.4.20:8001 npx playwright test tests/escalation/sc-management-devices-guard.spec.cjs
 
 const { test, expect } = require('playwright/test');
+const { captureScSequence } = require('./sc-sequence.cjs');
 
 const BASE = process.env.SDCC_PORTAL_PUBLIC_URL || 'http://localhost:8000';
 const USER = process.env.PORTAL_USER || 'twister@example.com';
@@ -47,6 +48,10 @@ test.describe.configure({ mode: 'serial', timeout: 120000 });
 
 let probeId = null;
 let backendOid = null;
+// Creating an SC burns a number off a global counter that deleting it does not give back, and
+// MAX_SC_NUM is compared against that counter rather than against how many SCs exist. See
+// sc-sequence.cjs -- the lab was wedged at 99 by exactly this, with four SCs in existence.
+let scSeq = null;
 
 async function login(request) {
   const res = await request.post(`${BASE}/api/auth/`, { data: { u: USER, p: PASSWORD } });
@@ -74,6 +79,10 @@ function createBody(backendOid) {
   };
 }
 
+test.beforeAll(() => {
+  scSeq = captureScSequence();
+});
+
 test.afterAll(async ({ request }) => {
   await login(request);
   const existing = await probe(request);
@@ -81,6 +90,9 @@ test.afterAll(async ({ request }) => {
     const res = await request.delete(`${BASE}/api/sc/${existing._id._oid}`);
     expect([200, 204], `probe SC ${existing._id._oid} must be removed`).toContain(res.status());
   }
+  // Only after the probe SC is gone: restore() will not lower the counter past a surviving SC's
+  // number, so returning it first would leave the burn in place.
+  if (scSeq) scSeq.restore();
 });
 
 test.describe('management_devices on the SC API', () => {
