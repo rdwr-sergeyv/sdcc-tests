@@ -204,13 +204,14 @@ async function status() {
   console.log(`Client log: ${clientLogFile}`);
 }
 
-// Component target: starts only the portal service and its mongo dependency.
-// Activates only the task-type profile so backend worker services are not started.
+// Component target: starts only the portal service and its mongo dependency. The `lab` profile is
+// activated because every service belongs to one, but only portal and mongo are named, so the
+// backend workers stay down.
 async function portalUp() {
   // There is one portal service; build vs execute is SDCC_TASK_TYPE, not a service or profile.
   const profileArgs = composeProfileArgs(["lab"]);
   const args = [...profileArgs, "up", "--build", "-d", "portal", "mongo"];
-  console.log(`Starting portal service (task-type: ${taskType})...`);
+  console.log(`Starting portal service (task-type: ${process.env.SDCC_TASK_TYPE})...`);
   console.log("Checking Docker CLI...");
   ensureCommand("docker", ["--version"], "Docker CLI is required.");
   await runDockerComposeLive(args);
