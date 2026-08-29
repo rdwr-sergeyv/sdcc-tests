@@ -38,9 +38,11 @@ const { test, expect } = require('playwright/test');
 const { login, mongoJson, waitFor } = require('../dp-isolate/dp-isolate-helpers.cjs');
 
 const ATTACK = process.env.ATTACK_BASE_URL || 'https://10.20.4.20:8470';
-// asset_9, not asset_8: the service can only act on an asset it can build a Setting for, and
-// asset_8 fails with "Cannot create default Setting: accountId not found".
-const ASSET_NAME = process.env.MISMATCH_TEST_ASSET || 'asset_9';
+// asset_7: it must be an asset the service can build a Setting for -- asset_8 fails with
+// "Cannot create default Setting: accountId not found" -- and it must NOT be the one
+// escalation-attack-service.spec.cjs uses (asset_9), or that spec leaves it 'deactivating' and this
+// one's beforeAll rejects it. Two specs sharing an asset in the same serial run collide.
+const ASSET_NAME = process.env.MISMATCH_TEST_ASSET || 'asset_7';
 const ATTACK_DB_HOST = process.env.ATTACK_DB_HOST || '10.20.4.20';
 const ATTACK_DB_PORT = process.env.ATTACK_DB_PORT || '27017';
 const READY = ['off-cloud', 'activating_request'];
