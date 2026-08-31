@@ -23,144 +23,17 @@
 //     npx playwright test tests/escalation/escalation-dedupe.spec.cjs
 
 const { test, expect } = require('playwright/test');
-const { login, mongoJson, waitFor } = require('../dp-isolate/dp-isolate-helpers.cjs');
+const { login } = require('../dp-isolate/dp-isolate-helpers.cjs');
+// Lifted out on 2026-08-30 so escalation-tail-leg.spec.cjs could use the same five
+// rather than become a third copy. Moved verbatim; nothing was rewritten.
+const {
+  multiScAssetInfo, buildMultiScTopology, activeDiversionScs, assetStatus, settle,
+} = require('./escalation-multi-sc-helpers.cjs');
 
 const ASSET_NAME = process.env.DEDUPE_TEST_ASSET || 'asset_5';
 const READY = ['off-cloud', 'activating_request'];
 
 test.describe.configure({ mode: 'serial', timeout: 600000 });
-
-/** The asset plus EVERY SC it diverts to -- its site's SC and each additional SC. */
-function multiScAssetInfo(name) {
-  return mongoJson(`(() => {
-    const a = db.Assets.findOne({ name: '${name}', type: 'network' });
-    if (!a) throw new Error('asset not found: ${name}');
-    const sd = (a.asset_site_data || [])[0];
-    const site = db.AccountSites.findOne({ _id: sd.account_site });
-    const account = db.Accounts.findOne({ _id: a.account });
-
-    const zones = {};
-    db.DPZones.find({}).forEach((z) => { zones[String(z._id)] = z; });
-    const closure = [];
-    let cur = zones[String(account.zone)];
-    while (cur) { closure.push(String(cur._id)); cur = cur.fail_over ? zones[String(cur.fail_over)] : null; }
-
-    const scIds = [site.sc_id].concat((sd.asset_additional_site || []).map((x) => x.sc_id));
-    const scs = scIds.map((id) => {
-      const sc = db.ScrubbingCenters.findOne({ _id: id });
-      const esc = sc.escalates_to ? db.ScrubbingCenters.findOne({ _id: sc.escalates_to }) : null;
-      return {
-        scId: String(sc._id),
-        scName: sc.name,
-        escalatesTo: esc ? esc.name : null,
-        devices: (sc.management_devices || [])
-          .filter((d) => ['radware-defensepro', 'router-out', 'router-in'].includes(d.role))
-          .map((d) => ({
-            id: String(d.unique_id),
-            role: d.role,
-            inZone: d.role !== 'radware-defensepro' || closure.includes(String(d.zone)),
-            // which routers this DP is actually cabled to. A DP entry pairs an edge router with an
-            // access router, and the activate validator refuses a topology that selects an AR the
-            // DP has no interface toward: "One of the interfaces (access or edge router) is
-            // missing for DP: <name>".
-            routerOuts: [...new Set((d.interfaces || []).map((i) => String(i.router_out)))],
-            routerIns: [...new Set((d.interfaces || []).map((i) => String(i.router_in)))],
-          })),
-      };
-    });
-
-    return {
-      id: String(a._id),
-      status: a.status,
-      address: String(a.address),
-      mask: Number(a.mask) || 24,
-      zoneId: String(account.zone),
-      scs,
-    };
-  })()`);
-}
-
-/** One topology entry per SC the asset diverts to.
- *
- * Routers are selected by FOLLOWING THE CABLING of the DPs we picked, not by document order. An SC
- * can carry a router-out that no DP is wired to -- NEW_SC has one, `ROut1`, left over from whatever
- * it was originally reserved for -- and selecting it makes the activate fail validation with "One
- * of the interfaces (access or edge router) is missing for DP". Ordering happened to hide this on
- * NEW-LAB-2, where the first router-out is a real AR.
- */
-function buildMultiScTopology(info, dpCount) {
-  return info.scs.map((sc) => {
-    let picked = 0;
-    const chosenDps = [];
-    const devices = sc.devices.map((d) => {
-      if (d.role === 'radware-defensepro') {
-        const selected = d.inZone && picked < dpCount;
-        if (selected) { picked += 1; chosenDps.push(d); }
-        return {
-          _oid: d.id, type: 'dp', selected, implicit: false,
-          'dp-subnet': info.address, 'dp-mask': info.mask,
-        };
-      }
-      return { _oid: d.id, type: d.role, selected: false, implicit: false };
-    });
-
-    const wiredOut = new Set(chosenDps.flatMap((d) => d.routerOuts));
-    const wiredIn = new Set(chosenDps.flatMap((d) => d.routerIns));
-    devices.forEach((entry) => {
-      if (entry.type === 'router-out') entry.selected = wiredOut.has(entry._oid);
-      if (entry.type === 'router-in') entry.selected = wiredIn.has(entry._oid);
-    });
-
-    if (![...wiredOut].length) {
-      throw new Error(`${sc.scName}: the DPs picked are wired to no access router`);
-    }
-    return { sc: { _oid: sc.scId }, line_type: 'DDOS', sc_prepend: 0, zone: { _oid: info.zoneId }, devices };
-  });
-}
-
-function activeDiversionScs(assetId) {
-  return mongoJson(`(() => {
-    const i = db.Incidents.findOne({ asset: ObjectId('${assetId}'), endedAt: null });
-    if (!i) return [];
-    return (i.diversion || [])
-      .filter((d) => !(d.state || {}).deactivated)
-      .map((d) => (db.ScrubbingCenters.findOne({ _id: d.sc_id }) || {}).name)
-      .sort();
-  })()`);
-}
-
-function assetStatus(assetId) {
-  return mongoJson(`String((db.Assets.findOne({ _id: ObjectId('${assetId}') }) || {}).status)`);
-}
-
-/** Wait until the action has actually LANDED, not merely left the queue.
- *
- * Two things had to be learnt the hard way here, both on 2026-08-26:
- *
- *  1. Task documents carry no incident or asset reference at all -- their fields are _id, command,
- *     createdAt, progress, status, type, modifiedAt, dependencies, startedAt, endedAt, message. A
- *     first version counted `db.Tasks` by `incident_id`, matched nothing, declared "idle" the
- *     instant the activate returned and fired the escalate mid-flight. The API rightly refused it
- *     (`ValueError("Incident status doesn't match your action.")`, 500) and left the incident
- *     wedged at `created`.
- *  2. `in_queue` alone is still too early. It clears well before the incident reaches `activated`,
- *     so a deactivate sent on that signal arrives while the asset is `activating` and is refused
- *     with "Asset status is not suitable for your action". Measured on four assets: each looked
- *     stuck at `activating`/`created` and each reached `pending`/`activated` on its own afterwards.
- *
- * So wait for the incident to leave `created` and the asset to leave `activating` as well. `pending`
- * is a normal diverted state, not a transitional one.
- */
-async function settle(assetId) {
-  await waitFor(() => (mongoJson(`(() => {
-    const inc = db.Incidents.findOne({ asset: ObjectId('${assetId}'), endedAt: null });
-    if (!inc) return true;
-    if (inc.in_queue === true) return false;
-    if (String(inc.status) === 'created') return false;
-    const a = db.Assets.findOne({ _id: ObjectId('${assetId}') }, { status: 1 });
-    return String(a.status) !== 'activating';
-  })()`) ? true : null), { timeoutMs: 300000 });
-}
 
 test.describe('CDDOS-3302 -- two standard SCs, one Escalation SC', () => {
   let info;

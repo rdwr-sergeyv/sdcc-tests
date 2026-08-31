@@ -38,11 +38,23 @@ const { test, expect } = require('playwright/test');
 const { login, mongoJson, waitFor } = require('../dp-isolate/dp-isolate-helpers.cjs');
 
 const ATTACK = process.env.ATTACK_BASE_URL || 'https://10.20.4.20:8470';
-// asset_7: it must be an asset the service can build a Setting for -- asset_8 fails with
-// "Cannot create default Setting: accountId not found" -- and it must NOT be the one
-// escalation-attack-service.spec.cjs uses (asset_9), or that spec leaves it 'deactivating' and this
-// one's beforeAll rejects it. Two specs sharing an asset in the same serial run collide.
-const ASSET_NAME = process.env.MISMATCH_TEST_ASSET || 'asset_7';
+// asset_4 `[moved 2026-08-31]`. Two constraints, and the comment here used to get the second wrong.
+//
+//   1. The attack service must be able to build a Setting for it. Measured against the service's own
+//      store (:27017, db `attack`): asset_1..4, asset_7 and asset_9 already have one; asset_8 does
+//      not, which is the "Cannot create default Setting: accountId not found" this comment used to
+//      cite.
+//   2. It must not be the asset escalation-attack-service.spec.cjs uses, or that spec leaves it
+//      'deactivating' and this one's beforeAll rejects it. That spec uses **asset_7** -- this comment
+//      previously said asset_9, so the avoidance picked asset_7 and produced the very collision it
+//      was written to prevent. Both specs ran on asset_7 until this was measured.
+//
+// asset_4 satisfies both: it has a Setting, and nothing else claims it. It carries a leftover
+// additional SC (SCRUBBING_1), which is harmless here because this suite submits a single-SC
+// topology and an additional SC only becomes a leg if the topology names one -- and because these
+// assertions check leg INCLUSION, not an exact set. escalation-attack-service could not take it for
+// that second reason: it asserts toEqual([info.scName]).
+const ASSET_NAME = process.env.MISMATCH_TEST_ASSET || 'asset_4';
 const ATTACK_DB_HOST = process.env.ATTACK_DB_HOST || '10.20.4.20';
 const ATTACK_DB_PORT = process.env.ATTACK_DB_PORT || '27017';
 const READY = ['off-cloud', 'activating_request'];
