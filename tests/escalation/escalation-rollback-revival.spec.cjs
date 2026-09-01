@@ -44,7 +44,13 @@ const {
   divertingLegs, taskCountsBySc, openIncidentId, waitUntilReady,
 } = require('./escalation-multi-sc-helpers.cjs');
 
-const ASSET_NAME = process.env.REVIVAL_TEST_ASSET || 'Test12345';
+// Test123456, NOT Test12345 `[2026-09-01]`. The baseline suite owns Test12345, there is no
+// playwright config so files run in parallel by default, and two suites activating the same asset
+// interleave -- the runbook's asset-ownership table (lab-stack-reference §2a-1) exists for exactly
+// this. Test123456 is shape-identical where it matters: account_1, account zone `default`, one site,
+// on NEW-LAB-2 which maps to NEW-LAB, no additional SC. It sits on site_new_lab2, whose ScRoutes row
+// was already correct, so this suite is also independent of the 2026-08-31 GRE ledger repair.
+const ASSET_NAME = process.env.REVIVAL_TEST_ASSET || 'Test123456';
 const READY = ['off-cloud', 'activating_request'];
 
 /** The incident's STORED legs -- what the DB holds, not what the API chooses to show. */
