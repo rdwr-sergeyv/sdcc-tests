@@ -27,6 +27,18 @@
 //   may legitimately produce nothing, and a test that measured zero against zero would report
 //   "no duplication" for the wrong reason.
 //
+// ANSWERED `[2026-08-31]`, and the answer was yes -- then fixed
+//   The tail DID double with no escalation in the picture: 16 against 8, reproduced three times. The
+//   cause is in the ordinary update path, as this suite was built to find out: an SC can be reached
+//   twice in one update_incident call, and `curr_tasks` is assigned rather than appended, so the
+//   second submission evicts the first from the only list that gets promoted -- leaving a task no
+//   executor can claim until the 6-hour reaper fails it as a phantom. Not a regression from the
+//   escalation work: lab pairs go back to 2026-06-14, and production carries the same signature to
+//   2024-04-08 (45 sets on 2026-08-31 alone).
+//
+//   Fixed by one submission per SC per call; `test.fail()` removed. This suite is the regression test.
+//   Background: docs/kb/runbooks/detect-duplicate-task-submissions.md, suspect S15.
+//
 // SAFETY
 //   Activates, updates and deactivates for real behind TAIL_DUP_ALLOW_REAL=1. type=build throughout,
 //   so no device is contacted. Two full cycles, cleaned up in a finally each time.
@@ -154,15 +166,19 @@ test.describe('a tail leg on the ordinary update path -- no escalation involved'
 
   test('an SC gets the same number of tasks whether it is a head or a tail',
     async ({ request }) => {
-      // EXPECTED TO FAIL, deliberately. Measured 2026-08-30: NEW_SC received 16 tasks from one
-      // Update as a tail and 8 as a head, with the head SC steady at 7 in both runs -- exactly 2x,
-      // one variable, no escalation anywhere. The assertion below states the CORRECT invariant, so
-      // marking it `fail` keeps the suite honest in both directions: it stays green while the defect
-      // stands, and the day update_incident stops double-submitting tails this test starts passing
-      // unexpectedly and goes red, which is the signal to delete this line rather than the test.
+      // `test.fail()` REMOVED `[2026-08-31]`, exactly as its own note said to: the defect is fixed,
+      // so this went red by passing. It was 16 tasks as a tail against 8 as a head (head SC steady at
+      // 7 in both runs, one variable, no escalation anywhere); it is now 8 against 8.
       //
-      // Do not "fix" it by relaxing the assertion.
-      test.fail();
+      // The fix is one submission per SC per call, at update_incident's two _perform_action calls
+      // (sdcc fix/tail-leg-submitted-twice, merged into the escalation branch). An SC was reachable
+      // twice -- as a head_topologies_dict entry, real or injected by the "ensure all heads" block,
+      // and as a member of head_tails_map[head] -- and `curr_tasks` is ASSIGNED rather than appended,
+      // so the second submission evicted the first from the only list IncidentAggregator promotes.
+      // Verified: 7 duplicate sets and 24 unreferenced orphans before, 0 and 0 after.
+      //
+      // So this is now a REGRESSION test, and it keeps its shape for the same reason it had it: the
+      // invariant asserted below is the correct one either way. Do not relax the assertion.
       test.skip(process.env.TAIL_DUP_ALLOW_REAL !== '1',
         'Runs two real activate/update/deactivate cycles against whatever SDCC_PORTAL_PUBLIC_URL '
         + 'names. Set TAIL_DUP_ALLOW_REAL=1 to run it.');
